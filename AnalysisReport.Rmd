@@ -549,11 +549,8 @@ DyaSlopeCi = boot.ci(boot.out=DyaSlope,type="bca")
 ### Loading Data
 
 ```{r SurveyData}
-Data=read.csv('AlienSurvey.csv', sep=",", header=TRUE) # Name of the file
+Data=read.table('AlienSurvey.txt', header=TRUE) # Name of the file
 
-Data$Pair[Data$Condition=='Individuals']=Data$Pair[Data$Condition=='Individuals']+26
-Data$Subject=(Data$Pair*10)+Data$Subject
-Data$Pair=factor(Data$Pair)
 Data$Subject=factor(Data$Subject)
 Data$Condition=factor(Data$Condition)
 
@@ -563,14 +560,14 @@ Data$Condition=factor(Data$Condition)
 
 ```{r SurveyTest}
 
-model1=lmer(Response~Condition+(1|Pair),REML=F,Data[Data$Question==3,])
+model1=lmer(Effort~Condition+(1|Pair),REML=F,Data)
 ModelDiagnostics(model1,linear=T)
 
-by(Data$Response[Data$Question==3],Data$Condition[Data$Question==3],stat.desc)
+by(Data$Effort,Data$Condition,stat.desc)
 
-model2=lmer(Response~Condition+(1|Pair),REML=F,Data[Data$Question==4,])
+model2=lmer(Motivation~Condition+(1|Pair),REML=F,Data)
 ModelDiagnostics(model2,linear=T)
 
-by(Data$Response[Data$Question==4],Data$Condition[Data$Question==4],stat.desc)
+by(Data$Motivation,Data$Condition,stat.desc)
 
 ```
