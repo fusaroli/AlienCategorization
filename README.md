@@ -40,3 +40,7 @@ Contains the R code to run the analyses reported in the manuscript and generate 
 ### AnalysisReport.html
 
 Contains the output of the R code, in html format
+
+### Stimulus_full.pdf
+
+Contains the full stimulus set in vectorial format. To get the stimuli in other formats contact the authors (e.g. fusaroli@gmail.com)
