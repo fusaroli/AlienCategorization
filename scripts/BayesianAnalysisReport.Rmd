@@ -931,6 +931,9 @@ round(mean((Post$IndividualFinalS3 )),2)*100
 round(sd((Post$IndividualFinalS3 )),2)*100
 round(quantile((Post$IndividualFinalS3), c(.025, 0.975)),2)*100
 
+round(mean((Post$DyadFinalS1 - Post$DyadFinalS3)),2)*100
+round(sd((Post$DyadFinalS1 - Post$DyadFinalS3)),2)*100
+round(quantile((Post$DyadFinalS1 - Post$DyadFinalS3), c(.025, 0.975)),2)*100
 
 round(mean((Post$IndividualFinalS1 - Post$IndividualFinalS3)),2)*100
 round(sd((Post$IndividualFinalS1 - Post$IndividualFinalS3)),2)*100
@@ -1426,111 +1429,6 @@ ggplot(d2, aes(trial, accuracy, color=condition)) +
 
 ```
 
-## Analysis 2 -  Extracting learning curve from each participant/dyad and predicting:
-#       - condition (do dyads and participants have different learning curves?)
-#          . also by first cycle only
-#       - post-test performance (does learning curve reflect rule learning?)
-
-### Analysis 3a - cosine similarity and performance (training to training and training to test)
-### Analysis 3a - speech ratio and performance (training to training and training to test)
-
-
-### Prepare the data
-
-```{r LearningPreprocess, echo=F, warning=F, message=F}
-
-# extract learning curve
-## NB. due to silly syntax, effects for each condition (dyad vs individuals) are estimated for each subject ID.
-## Individuals are 1-27, Dyads are 30 to 56
-
-TrainPerformance <- d1 %>% 
-  group_by(subject, condition, session) %>% 
-  summarize(TrainingPerformance = mean(Accuracy,na.rm=T))
-
-TestPerformance <- d2 %>% 
-  group_by(subject, condition, session) %>% 
-  summarize(TestPerformance = mean(Accuracy,na.rm=T))
-
-d3 <- merge(TrainPerformance, TestPerformance, all=T)
-
-## Training Learning
-TrainLearning <- d1 %>% 
-  group_by(subject, session) %>% 
-  summarize(TrainingPerformance = mean(as.numeric(correct)-1,na.rm=T))
-
-
-ggplot(d3, aes(TrainingPerformance, TestPerformance)) + 
-  geom_point(aes( color=subject)) + 
-  geom_smooth(method=lm,aes(color=condition)) +
-  theme_classic() +
-  guides(color=F)
-```
-
-### Predicting condition from learning curve
-
-Main Effects first and Interaction second
-
-```{r LearningPredictingCondition, echo=F, warning=F, message=F}
-
-model2=glmer(condition ~ intercept + slope  + session + (1 + session | subject), LearningSet, family="binomial",nAGQ=0, control=glmerControl(optimizer = "nloptwrap")) 
-
-ModelDiagnostics(model2)
-
-model3=glmer(condition ~ (intercept + slope)  * session + (1 + session | subject), LearningSet, family="binomial",nAGQ=0, control=glmerControl(optimizer = "nloptwrap")) #+ slope2
-
-ModelDiagnostics(model3)
-```
-
-
-### Predicting condition from learning curve in first cycle
-
-```{r LearningFirstCyclePredictingCondition, echo=F, warning=F, message=F}
-model2C=glmer(as.factor(condition) ~ interceptC + slopeC  + sessionC + (1 + sessionC | subjectC), LearningSetC, family="binomial", nAGQ=0, control=glmerControl(optimizer = "nloptwrap"))#+ slope2C
-
-ModelDiagnostics(model2C)
-
-model3C=glmer(as.factor(condition) ~ (interceptC + slopeC)  * sessionC + (1 + sessionC | subjectC), LearningSetC, family="binomial", nAGQ=0, control=glmerControl(optimizer = "nloptwrap"))#+ slope2C
-
-ModelDiagnostics(model3C)
-
-```
-
-### Predicting test performance from learning curve
-
-```{r LearningPredictingTest, echo=F, warning=F, message=F}
-#model4=glmer(testPerf ~ intercept + slope  + condition + session + (1 + condition + session | subject), LearningSet,family='poisson')
-
-model4=glmer(testPerf ~ intercept + slope + condition + (1 + condition | subject), LearningSet,family='poisson')
-
-
-ModelDiagnostics(model4)
-
-fit=fitted(model4)
-
-plot4= ggplot(LearningSet,aes(fit,testPerf)) + geom_point()+ stat_smooth(method = "lm")+theme_classic()
-plot4
-
-```
-
-### Bootstrapping estimates
-
-```{r LearningBootstrap, echo=F, warning=F, message=F}
-
-IndIntercept = boot(LearningSet$intercept[LearningSet$condition=="1"],statistic=boot.mean,R=10000)
-IndInterceptCi = boot.ci(boot.out=IndIntercept,type="bca")
-
-DyaIntercept = boot(LearningSet$intercept[LearningSet$condition=="2"],statistic=boot.mean,R=10000)
-DyaInterceptCi = boot.ci(boot.out=DyaIntercept,type="bca")
-
-IndSlope = boot(LearningSet$slope[LearningSet$condition=="1"],statistic=boot.mean,R=10000)
-IndSlopeCi = boot.ci(boot.out=IndSlope,type="bca")
-
-DyaSlope = boot(LearningSet$slope[LearningSet$condition=="2"],statistic=boot.mean,R=10000)
-DyaSlopeCi = boot.ci(boot.out=DyaSlope,type="bca")
-
-```
-
-
 
 ### Conversation analysis
 
@@ -1583,20 +1481,67 @@ plot6
 ### Analysis 1 - Controlling for differences in RT, effort and motivation by condition
 
 ```{r SurveyTest}
+dSurvey <- dSurvey %>% mutate(
+  Pair = ifelse(Condition=="Individual", Pair + 100, Pair)
+)
 
-modelRT=lmer(RT~1+condition+session+trial+(1+session+trial|subject)+(1+condition+session+trial|stimulus),REML=F,Data)
-ModelDiagnostics(modelRT,linear=T)
+Motivation_f <- bf(Motivation ~ 1 + Condition + (1 | gr(Pair, by=Condition)))
 
-modelMotivation=lmer(Motivation~1+Condition+(1|Pair),REML=F,DataSurvey)
-ModelDiagnostics(modelMotivation,linear=T)
+get_prior(Motivation_f, dSurvey, family = cumulative)
 
-#by(Data$Motivation,Data$Condition,stat.desc)
+prior <- c(
+  prior(normal(0, 1), class = b),
+  prior(normal(0, 1), class = sd)
+)
 
-modelEffort=lmer(Effort~1+Condition+(1|Pair),REML=F,DataSurvey)
-ModelDiagnostics(modelEffort,linear=T)
+Motivation_m <- brm(Motivation_f, 
+                    family = cumulative, 
+                    chains = 2,
+                    cores = 1,
+                    prior = prior,
+                    sample_prior = T,
+                    control = list(adapt_delta=0.99, max_treedepth=20),
+                    dSurvey)
+plot(hypothesis(Motivation_m, "ConditionPair > 0"))
+plot(hypothesis(Motivation_m, "Intercept:ConditionIndividual > 0", class="sd", group="Pair"))
+plot(hypothesis(Motivation_m, "Intercept:ConditionPair > 0", class="sd", group="Pair"))
 
-#by(Data$Effort,Data$Condition,stat.desc)
+hypothesis(Motivation_m, "ConditionPair > 0")
+conditional_effects(Motivation_m)
+Effort_m <- brm(Effort ~ 1 + Condition + (1 | gr(Pair, by=Condition)), 
+                family = cumulative, 
+                    chains = 2,
+                    cores = 1,
+                    prior = prior,
+                    sample_prior = T,
+                    control = list(adapt_delta=0.99, max_treedepth=20),
+                    dSurvey)
+plot(hypothesis(Effort_m, "ConditionPair > 0"))
+plot(hypothesis(Effort_m, "Intercept:ConditionIndividual > 0", class="sd", group="Pair"))
+plot(hypothesis(Effort_m, "Intercept:ConditionPair > 0", class="sd", group="Pair"))
+hypothesis(Effort_m, "ConditionPair > 0")
+conditional_effects(Effort_m)
 
+d <- d %>% mutate(session=as.factor(session))
+RT_f <- bf(RT ~ 0 + condition:session + (0 + session | gr(subject, by=condition)) + 
+    (0 + condition | stimulus))
+
+get_prior(RT_f, d, family=shifted_lognormal())
+
+prior <- c(
+  prior(normal(8.7, 1), class = b),
+  prior(lkj(5), class = cor),
+  prior(normal(0, .1), class=sd)
+)
+
+RT_m <- brm(RT_f, d, 
+            family = shifted_lognormal(),
+            chains=2,
+            cores=1,
+            prior=prior,
+            sample_prior=T,
+                    control = list(adapt_delta=0.99, max_treedepth=20))
+hypothesis(RT_m, "conditionIndividuals:session")
 
 ```
 

@@ -1,0 +1,486 @@
+---
+title: "NLP_Aliens"
+author: "RF"
+date: "07/06/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load data and libraries
+
+```{r load data and libraries}
+pacman::p_load(tidyverse, 
+               udpipe,
+               lubridate,
+               hms,
+               gdata,
+               data.table,
+               here)
+
+udmodelDK <- udpipe_download_model(language = "danish")
+udmodelEN <- udpipe_download_model(language = "english-lines")
+
+transcripts <- list.files(here("data","Transcripts"), full.names = T)
+
+d <- transcripts %>%
+  map(read_csv) %>% 
+  reduce(rbind) %>%
+  subset(Transcription!="" & !is.na(Transcription)) %>%
+  rename(JointDecision = `Joint decision`) %>%
+  mutate(
+    Pair = parse_number(Pair),
+    Session = ifelse(Session==0, 3, Session),
+    doc_id = paste0(Pair,"_", Session, "_", JointDecision),
+    Transcriber = NULL
+  )
+
+# Merge adjacent?
+d_Merge <- NULL
+
+for (i in unique(d$doc_id)) {
+  print(i)
+  DfMerge = subset(d,doc_id==i)
+  
+  keep = 1
+  while (keep == 1) {
+    DataT1 = DfMerge
+    DfMerge = NULL
+    k = 1
+    l1 = length(DataT1$Interlocutor)
+    
+    if (l1 > 1) {
+      while (k < length(DataT1$Interlocutor)) {
+        
+        if (DataT1$Interlocutor[k] !=  DataT1$Interlocutor[k + 1]) {
+          DfMerge = rbind(DfMerge, DataT1[k, ])
+          k = k + 1
+        } else if (DataT1$Interlocutor[k] == DataT1$Interlocutor[k + 1]) {
+          x = DataT1[k, ]
+          x$Transcription = paste(DataT1$Transcription[k],DataT1$Transcription[k + 1],sep=" ")
+          DfMerge = rbind(DfMerge, x)
+          k = k + 2
+        }
+      }
+      if (DataT1$Interlocutor[l1 - 1] !=  DataT1$Interlocutor[l1]) {
+        DfMerge = rbind(DfMerge, DataT1[l1, ])
+      }
+    }
+    
+    if (length(DfMerge$Interlocutor) == length(DataT1$Interlocutor)) {
+      keep = 0
+    }
+  }
+  
+  for (rep in seq(10)){
+    DfMerge$Transcription<-gsub("  "," ",DfMerge$Transcription)
+  }
+  
+  DfMerge$Turn <- seq(nrow(DfMerge))
+  
+  if (exists('d_Merge')){d_Merge=rbind(d_Merge,DfMerge)}else{d_Merge=DfMerge}
+  
+}
+```
+
+## Parse the text
+
+```{r}
+d <- d_Merge %>%
+  mutate(Pair = parse_number(Pair))
+for (p in unique(d$Pair)){
+  for (s in unique(d$Session[d$Pair==p])){
+    d$Turn[d$Pair==p & d$Session==s] <- seq(nrow(d[d$Pair==p & d$Session==s,]) )
+  }
+}
+d <- d %>% mutate(doc_id = paste0(Pair,"_", Session, "_", Interlocutor, "_", JointDecision))
+
+d_DK <- subset(d, !(Pair %in% c(8, 16))) %>%
+  mutate(Transcription = tolower(Transcription))
+
+#Misspells <- hunspell(d_DK$Transcription, dict=dictionary("da_DK"))
+#sort(unique(unlist(Misspells)))
+#hunspell_suggest(sort(unique(unlist(Misspells))), dict=dictionary("da_DK"))[18:28]
+d_DK <- d_DK %>% mutate(
+  Transcription = gsub("aah|åha|ahd|åhh|ahr", "åh", Transcription),
+  Transcription = gsub("åårh|arh|arhh|argh|århh|årrhh", "årh", Transcription),
+  Transcription = gsub("ælle|all[^ei]", "alle", Transcription),
+  Transcription = gsub("ærketypisk", "arketypisk", Transcription),
+  Transcription = gsub("aggresiviteten", "aggressiviteten", Transcription),
+  Transcription = gsub("aj|ajj|eej", "ej", Transcription),
+  Transcription = gsub("allesamme[^n]", "allesammen ", Transcription),
+  Transcription = gsub("alligevle", "alligevel", Transcription),
+  Transcription = gsub("altsaa", "altså", Transcription),
+  Transcription = gsub("angry", "sur", Transcription),
+  Transcription = gsub("annd", "og", Transcription),
+  Transcription = gsub("armede", "larmede", Transcription),
+  Transcription = gsub("betyning|betydening", "betydning", Transcription),
+  Transcription = gsub("blaa", "blå", Transcription),
+  Transcription = gsub("bobbel", "boble", Transcription),
+  Transcription = gsub("boelle", "bølle", Transcription),
+  Transcription = gsub("ddet|dei|dé |dett[ $]|dte", "det", Transcription),
+  Transcription = gsub("dém", "dem", Transcription),
+  Transcription = gsub("dérover", "derover", Transcription),
+  Transcription = gsub("destruction", "destruktion", Transcription),
+  Transcription = gsub("destructive|destuktiv", "destruktiv", Transcription),
+  Transcription = gsub("dettror|detror", "det tror", Transcription),
+  Transcription = gsub("difinition", "definition", Transcription),
+  Transcription = gsub("dn", "den", Transcription),
+  Transcription = gsub("draebe", "dræbe", Transcription),
+  Transcription = gsub("ehm", "hm", Transcription),
+  Transcription = gsub("eler", "eller", Transcription),
+  Transcription = gsub("faar", "får", Transcription),
+  Transcription = gsub("farveng", "farven", Transcription),
+  Transcription = gsub("faverne", "farverne", Transcription),
+  Transcription = gsub("fjentlig|fjendlig", "fjendtlig", Transcription),
+  Transcription = gsub("foeler|foeller", "føler", Transcription),
+  Transcription = gsub("foer", "før", Transcription),
+  Transcription = gsub("foerst", "først", Transcription),
+  Transcription = gsub("foerste", "første", Transcription),
+  Transcription = gsub("detder", "det der", Transcription),
+  Transcription = gsub("doe", "dø", Transcription),
+  Transcription = gsub("forholdvis", "forholdtvis", Transcription),
+  Transcription = gsub("forksellige", "forskellige", Transcription),
+  Transcription = gsub("forstaa", "forstå", Transcription),
+  Transcription = gsub("forstaar", "forstår", Transcription),
+  Transcription = gsub("forvirrerede", "forvirrede", Transcription),
+  Transcription = gsub("gaa", "gå", Transcription),
+  Transcription = gsub("gaar|gar", "går", Transcription),
+  Transcription = gsub("gaet", "gæt", Transcription),
+  Transcription = gsub("gaette", "gætte", Transcription),
+  #Transcription = gsub("gjor", "gjør", Transcription),
+  #Transcription = gsub("gladere", "glædere", Transcription),
+  Transcription = gsub("gladeste", "glædeste", Transcription),
+  Transcription = gsub("goer", "gør", Transcription),
+  Transcription = gsub("goere", "gøre", Transcription),
+  Transcription = gsub("groen|grøm", "grøn", Transcription),
+  Transcription = gsub("hæælder", "hælder", Transcription),
+  Transcription = gsub("hm+", "hm", Transcription),
+  Transcription = gsub("hvornaar", "hvornår", Transcription),
+  Transcription = gsub("ift", "i forhold til", Transcription),
+  Transcription = gsub("kamoufleret", "kamufleret", Transcription),
+  Transcription = gsub("karakteristikæne", "karakteristikkerne", Transcription),
+  Transcription = gsub("kategorerer", "kategoriserer", Transcription),
+  Transcription = gsub("tilfaelde", "tilfælde", Transcription),
+  Transcription = gsub("tilig", "tidlig", Transcription),
+  Transcription = gsub("tilige", "tidlige", Transcription),
+  Transcription = gsub("vaelge", "vælge", Transcription),
+  Transcription = gsub("vaerdi", "værdi", Transcription),
+  Transcription = gsub("vaere", "være", Transcription),
+  Transcription = gsub("proev", "prøv", Transcription),
+  Transcription = gsub("saerlig", "særlig", Transcription),
+  Transcription = gsub("saadan", "sådan", Transcription),
+  Transcription = gsub("saette", "sætte", Transcription),
+  Transcription = gsub("spoergsmaal", "spørgsmål", Transcription),
+  Transcription = gsub("stoerre|stoere", "større", Transcription),
+  Transcription = gsub("stæreke", "stærke", Transcription),
+  Transcription = gsub("staerk", "stærk", Transcription),
+  Transcription = gsub("taen", "tæn", Transcription),
+  Transcription = gsub("ogsaa", "også", Transcription),
+  Transcription = gsub("kune", "kunne", Transcription),
+  Transcription = gsub("laenge", "længe", Transcription),
+  Transcription = gsub("laese", "læse", Transcription),
+  Transcription = gsub("ligemeget", "lige meget", Transcription),
+  Transcription = gsub("ligesaa", "lige så", Transcription),
+  Transcription = gsub("liiige", "lige", Transcription),
+  Transcription = gsub("maa", "må", Transcription),
+  Transcription = gsub("maerkeligt", "mærkeligt", Transcription),
+  Transcription = gsub("fallestrækkene", "fællestrækkene", Transcription),
+  Transcription = gsub("gåranteret", "garanteret", Transcription),
+  Transcription = gsub("helller", "heller", Transcription),
+  Transcription = gsub("ihej|ihejl|ihje ", "ihjel", Transcription),
+  Transcription = gsub("ikkw", "ikke", Transcription),
+  Transcription = gsub("ingorer", "ignorer", Transcription),
+  Transcription = gsub("meen", "men", Transcription),
+  Transcription = gsub("muskuloese", "muskuløse", Transcription),
+  Transcription = gsub("naa", "nå", Transcription),
+  Transcription = gsub("naeste", "næste", Transcription),
+  Transcription = gsub("oeh", "øh", Transcription),
+  Transcription = gsub("oej[en]", "øj[en]", Transcription),
+  Transcription = gsub("oev", "øv", Transcription),
+  Transcription = gsub("selvfoelgelig", "selvfølgelig", Transcription),
+  Transcription = gsub("trøde", "troede", Transcription),
+  Transcription = gsub("traels", "træls", Transcription)
+) 
+
+  
+d_EN <- subset(d, Pair %in% c(8, 16))
+#Misspells <- hunspell(d_EN$Transcription)
+d_EN <- d_EN %>% mutate(
+  Transcription = gsub("Nuetral", "Neutral", Transcription),
+  Transcription = gsub("Umm|Mh|Mmm|Hm", "Hmm", Transcription),
+  Transcription = gsub("furhter", "further", Transcription),
+  Transcription = gsub("nece", "nice", Transcription),
+  Transcription = gsub("nutrience", "nutrient", Transcription),
+  Transcription = gsub("thnik", "think", Transcription),
+  Transcription = gsub("memorised|Memorised", "memorized", Transcription),
+  Transcription = gsub("Bkue", "Blue", Transcription),
+  Transcription = gsub("clos", "close", Transcription),
+  Transcription = gsub("differene", "difference", Transcription),
+  Transcription = gsub("Thr", "The", Transcription),
+  Transcription = gsub("Nutricious|nutricious", "nutritious", Transcription),
+  Transcription = gsub("destr", "destroy", Transcription),
+  Transcription = gsub("becuase", "because", Transcription),
+  Transcription = gsub("døsn\'t", "doesn\'t", Transcription),
+  Transcription = gsub("valueable", "valuable", Transcription),
+  Transcription = gsub("differenciate", "differentiate", Transcription)
+) 
+
+t_EN <- udpipe(x = d_EN$Transcription,
+            object = udmodelEN,
+            doc_id = d_EN$doc_id)
+t_EN$n <- seq(nrow(t_EN))
+
+
+t_DK <- udpipe(x = d_DK$Transcription,
+            object = udmodelDK,
+            doc_id = d_DK$doc_id)
+t_DK$n <- seq(nrow(t_DK))
+
+# Double check unique tokens and lemmas to clean up typos and errors
+tokens_EN <- t_EN %>% group_by(token) %>% summarize(freq=n())
+lemmas_EN <- t_EN %>% group_by(lemma) %>% summarize(freq=n())
+tokens_DK <- t_DK %>% group_by(token) %>% summarize(freq=n())
+lemmas_DK <- t_DK %>% group_by(lemma) %>% summarize(freq=n())
+
+# Import word2vec from FastText
+w2v_EN <- data.table::fread("/Users/au209589/Downloads/cc.en.300.vec",quote="")
+names(w2v_EN)[1] <- "token"
+names(w2v_EN)[2] <- "V2"
+t_EN <- merge(t_EN,w2v_EN,all.x=TRUE,all.y=FALSE)
+t_EN <- t_EN[order(t_EN$n),]
+write_csv(t_EN, here("data","tokenized_EN.csv"))
+w2v_EN <-NULL
+
+w2v_DK <- data.table::fread("/Users/au209589/Downloads/wiki.da.vec",quote="")
+names(w2v_DK)[1] <- "token"
+names(w2v_DK)[2] <- "V2"
+
+t_DK <- merge(t_DK,w2v_DK,all.x=TRUE,all.y=FALSE)
+t_DK <- t_DK[order(t_DK$n),]
+write_csv(t_DK, here("data","tokenized_DK.csv"))
+w2v_DK <-NULL
+
+## Aggregate the lemma and pos sentence 
+x_EN <- t_EN %>% 
+  group_by(doc_id) %>% 
+  summarise(
+    lemmas = paste(lemma, collapse=" "), 
+    PoS = paste(upos, collapse=" "))
+x_DK <- t_DK %>% 
+  group_by(doc_id) %>% 
+  summarise(
+    lemmas = paste(lemma, collapse=" "), 
+    PoS = paste(upos, collapse=" "))
+
+## Aggregate the word2vec vectors
+x_EN_1 <- t_EN %>%
+  group_by(doc_id) %>%
+  summarise_at(vars(matches("V")), mean, na.rm = TRUE)
+x_DK_1 <- t_DK %>%
+  group_by(doc_id) %>%
+  summarise_at(vars(matches("V")), mean, na.rm = TRUE)
+
+x_EN <- merge(x_EN,x_EN_1,all=T)
+d_EN <- merge(d_EN,x_EN,all=T) 
+x_DK <- merge(x_DK,x_DK_1,all=T)
+d_DK <- merge(d_DK,x_DK,all=T) 
+
+ss <- str_split(t_EN$doc_id,"_")
+t_EN$Pair <- unlist(ss)[4*(1:length(t_EN$doc_id))-3]
+t_EN$Session <- unlist(ss)[4*(1:length(t_EN$doc_id))-2]
+t_EN$Interlocutor <- unlist(ss)[4*(1:length(t_EN$doc_id))-1]
+t_EN$JointDecision <- unlist(ss)[4*(1:length(t_EN$doc_id))]
+
+ss <- str_split(t_DK$doc_id,"_")
+t_DK$Pair <- unlist(ss)[4*(1:length(t_DK$doc_id))-3]
+t_DK$Session <- unlist(ss)[4*(1:length(t_DK$doc_id))-2]
+t_DK$Interlocutor <- unlist(ss)[4*(1:length(t_DK$doc_id))-1]
+t_DK$JointDecision <- unlist(ss)[4*(1:length(t_DK$doc_id))]
+
+d_EN <- d_EN[order(d_EN$Pair,d_EN$Session,d_EN$JointDecision,d_EN$Interlocutor),]
+d_DK <- d_DK[order(d_DK$Pair,d_DK$Session,d_DK$JointDecision,d_DK$Interlocutor),]
+
+d_EN$doc_id <- paste0(d_EN$Pair,"_",d_EN$Session,"_",d_EN$JointDecision)
+t_EN$doc_id <- paste0(t_EN$Pair,"_",t_EN$Session,"_",t_EN$JointDecision)
+
+for (delay in c(1)) {
+  d_EN$LexicalAlignmentLemmas=NULL
+  d_EN$SemanticAlignment=NULL
+  
+  for (i in unique(d_EN$doc_id)){
+    print(i)
+    txt <- subset(d_EN, doc_id==i)
+    lists <- subset(t_EN, doc_id==i & upos != "PUNCT")
+    
+    Pair <- str_split(i,"_")[[1]][1]
+    Session <- str_split(i,"_")[[1]][2]
+    JointDecision <- str_split(i,"_")[[1]][3]
+    
+    for (u in unique(txt$JointDecision)){
+      
+      # Isolating the utterances
+      u1 <- subset(lists,JointDecision==u & Interlocutor=="A")
+      u2 <- subset(lists,JointDecision==u & Interlocutor=="B")
+      
+      # Second the lexical cosine similarity: Lemmas
+      d_EN$LexicalAlignmentLemmas[d_EN$doc_id==i & d_EN$JointDecision==u] <- cosine_similarity(u1$lemma,u2$lemma)
+      
+      # Finally semantic alignment
+      v1 <- colMeans(subset(u1, select=V2:V301),na.rm=T)
+      v2 <- colMeans(subset(u2, select=V2:V301),na.rm=T)
+      d_EN$SemanticAlignment[d_EN$doc_id==i & d_EN$JointDecision==u] <- sum(v1*v2) / (sqrt(sum(v1^2))*sqrt(sum(v2^2)))
+    }
+  }
+  fileName <- paste0("data/AlignmentData_EN",delay,".csv")
+  write_csv(d_EN,path=fileName) 
+}
+
+
+d_DK$doc_id <- paste0(d_DK$Pair,"_",d_DK$Session,"_",d_DK$JointDecision)
+t_DK$doc_id <- paste0(t_DK$Pair,"_",t_DK$Session,"_",t_DK$JointDecision)
+
+for (delay in c(1)) {
+  d_DK$LexicalAlignmentLemmas=NULL
+  d_DK$SemanticAlignment=NULL
+  
+  for (i in unique(d_DK$doc_id)){
+    print(i)
+    txt <- subset(d_DK, doc_id==i)
+    lists <- subset(t_DK, doc_id==i & upos != "PUNCT")
+    
+    Pair <- str_split(i,"_")[[1]][1]
+    Session <- str_split(i,"_")[[1]][2]
+    JointDecision <- str_split(i,"_")[[1]][3]
+    
+    for (u in unique(txt$JointDecision)){
+      
+      # Isolating the utterances
+      u1 <- subset(lists,JointDecision==u & Interlocutor=="A")
+      u2 <- subset(lists,JointDecision==u & Interlocutor=="B")
+      
+      # Second the lexical cosine similarity: Lemmas
+      d_DK$LexicalAlignmentLemmas[d_DK$doc_id==i & d_DK$JointDecision==u] <- cosine_similarity(u1$lemma,u2$lemma)
+      
+      # Finally semantic alignment
+      v1 <- colMeans(subset(u1, select=V2:V301),na.rm=T)
+      v2 <- colMeans(subset(u2, select=V2:V301),na.rm=T)
+      d_DK$SemanticAlignment[d_DK$doc_id==i & d_DK$JointDecision==u] <- sum(v1*v2) / (sqrt(sum(v1^2))*sqrt(sum(v2^2)))
+    }
+  }
+  fileName <- paste0("data/AlignmentData_DK",delay,".csv")
+  write_csv(d_DK,path=fileName) 
+}
+
+## Now by session
+d_EN$doc_id <- paste0(d_EN$Pair,"_",d_EN$Session)
+t_EN$doc_id <- paste0(t_EN$Pair,"_",t_EN$Session)
+
+for (delay in c(1)) {
+  d_EN$LexicalAlignmentLemmas=NULL
+  d_EN$SemanticAlignment=NULL
+  
+  for (i in unique(d_EN$doc_id)){
+    print(i)
+    txt <- subset(d_EN, doc_id==i)
+    lists <- subset(t_EN, doc_id==i & upos != "PUNCT")
+    
+    Pair <- str_split(i,"_")[[1]][1]
+    Session <- str_split(i,"_")[[1]][2]
+    
+    for (u in unique(txt$Session)){
+      
+      # Isolating the utterances
+      u1 <- subset(lists,Session==u & Interlocutor=="A")
+      u2 <- subset(lists,Session==u & Interlocutor=="B")
+      
+      # Second the lexical cosine similarity: Lemmas
+      d_EN$LexicalAlignmentLemmas[d_EN$doc_id==i & d_EN$Session==u] <- cosine_similarity(u1$lemma,u2$lemma)
+      
+      # Finally semantic alignment
+      v1 <- colMeans(subset(u1, select=V2:V301),na.rm=T)
+      v2 <- colMeans(subset(u2, select=V2:V301),na.rm=T)
+      d_EN$SemanticAlignment[d_EN$doc_id==i & d_EN$Session==u] <- sum(v1*v2) / (sqrt(sum(v1^2))*sqrt(sum(v2^2)))
+    }
+  }
+  fileName <- paste0("data/AlignmentData_EN",delay,"Session.csv")
+  write_csv(d_EN,path=fileName) 
+}
+
+
+d_DK$doc_id <- paste0(d_DK$Pair,"_",d_DK$Session)
+t_DK$doc_id <- paste0(t_DK$Pair,"_",t_DK$Session)
+
+for (delay in c(1)) {
+  d_DK$LexicalAlignmentLemmas=NULL
+  d_DK$SemanticAlignment=NULL
+  
+  for (i in unique(d_DK$doc_id)){
+    print(i)
+    txt <- subset(d_DK, doc_id==i)
+    lists <- subset(t_DK, doc_id==i & upos != "PUNCT")
+    
+    Pair <- str_split(i,"_")[[1]][1]
+    Session <- str_split(i,"_")[[1]][2]
+    
+    for (u in unique(txt$Session)){
+      
+      # Isolating the utterances
+      u1 <- subset(lists,Session==u & Interlocutor=="A")
+      u2 <- subset(lists,Session==u & Interlocutor=="B")
+      
+      # Second the lexical cosine similarity: Lemmas
+      d_DK$LexicalAlignmentLemmas[d_DK$doc_id==i & d_DK$Session==u] <- cosine_similarity(u1$lemma,u2$lemma)
+      
+      # Finally semantic alignment
+      v1 <- colMeans(subset(u1, select=V2:V301),na.rm=T)
+      v2 <- colMeans(subset(u2, select=V2:V301),na.rm=T)
+      d_DK$SemanticAlignment[d_DK$doc_id==i & d_DK$Session==u] <- sum(v1*v2) / (sqrt(sum(v1^2))*sqrt(sum(v2^2)))
+    }
+  }
+  fileName <- paste0("data/AlignmentData_DK",delay,"Session.csv")
+  write_csv(d_DK,path=fileName) 
+}
+d_EN$Pair <- as.factor(d_EN$Pair)
+d_EN$Test <- ifelse(d_EN$Session %in% c(1,2,3), 0, 1)
+ggplot(d_EN,aes(Session,SemanticAlignment)) + 
+  geom_point(aes(color = Pair)) + 
+  facet_grid(. ~ Test) +
+  theme_classic() 
+
+d_DK$Pair <- as.factor(d_DK$Pair)
+d_DK$Test <- ifelse(d_DK$Session %in% c(1,2,3), 0, 1)
+d_DK$Session <- parse_number(d_DK$Session)
+ggplot(subset(d_DK, Session!=0),aes(Session,SemanticAlignment)) + 
+  geom_point(aes(color = Pair), alpha=0.01) + 
+  geom_smooth(aes(color = Pair), method=lm, se=F, alpha=0.3) +
+  geom_smooth(method=lm, color = "black", fill="black") +
+  facet_grid(. ~ Test) +
+  theme_classic() 
+
+ggplot(subset(d_DK, Session!=0),aes(Session,LexicalAlignmentLemmas)) + 
+  geom_point(aes(color = Pair), alpha=0.01) + 
+  geom_smooth(aes(color = Pair), method=lm, se=F, alpha=0.3) +
+  geom_smooth(method=lm, color = "black", fill="black") +
+  facet_grid(. ~ Test) +
+  theme_classic()  
+
+dA <- d_DK %>% group_by(Pair, Session, Test) %>% 
+  summarize(Lexical = mean(LexicalAlignmentLemmas, na.rm=T),
+            Semantic = mean(SemanticAlignment, na.rm=T)) %>% 
+  mutate(Session = ifelse(Session==0, 3, Session))
+
+PerformanceTraining <- as.data.frame(ranef(Analysis1a_m)$subject[, , "conditionDyads"][1:26,]) %>%
+  mutate(Pair = c(1:26)) %>%
+  rename(TrainingPerformance = Estimate)%>%
+  select(Pair, TrainingPerformance)
+PerformanceTest <- as.data.frame(ranef(Analysis1b_m)$subject[, , "conditionDyads"][1:26,]) %>%
+  mutate(Pair = c(1:26)) %>%
+  rename(TestPerformance = Estimate) %>%
+  select(Pair, TestPerformance)
+x <- merge(PerformanceTraining, PerformanceTest)
+x <- merge(subset(dA, Session==1),x)
+```
+
