@@ -88,14 +88,13 @@ for (i in unique(d$doc_id)) {
 ## Parse the text
 
 ```{r}
-d <- d_Merge %>%
-  mutate(Pair = parse_number(Pair))
+d <- d_Merge 
 for (p in unique(d$Pair)){
   for (s in unique(d$Session[d$Pair==p])){
     d$Turn[d$Pair==p & d$Session==s] <- seq(nrow(d[d$Pair==p & d$Session==s,]) )
   }
 }
-d <- d %>% mutate(doc_id = paste0(Pair,"_", Session, "_", Interlocutor, "_", JointDecision))
+d <- d %>% mutate(doc_id = paste0(Pair,"_", Session, "_", JointDecision, "_", Interlocutor, "_", Turn))
 
 d_DK <- subset(d, !(Pair %in% c(8, 16))) %>%
   mutate(Transcription = tolower(Transcription))
@@ -253,7 +252,6 @@ t_EN <- merge(t_EN,w2v_EN,all.x=TRUE,all.y=FALSE)
 t_EN <- t_EN[order(t_EN$n),]
 write_csv(t_EN, here("data","tokenized_EN.csv"))
 w2v_EN <-NULL
-
 w2v_DK <- data.table::fread("/Users/au209589/Downloads/wiki.da.vec",quote="")
 names(w2v_DK)[1] <- "token"
 names(w2v_DK)[2] <- "V2"
@@ -289,16 +287,18 @@ x_DK <- merge(x_DK,x_DK_1,all=T)
 d_DK <- merge(d_DK,x_DK,all=T) 
 
 ss <- str_split(t_EN$doc_id,"_")
-t_EN$Pair <- unlist(ss)[4*(1:length(t_EN$doc_id))-3]
-t_EN$Session <- unlist(ss)[4*(1:length(t_EN$doc_id))-2]
-t_EN$Interlocutor <- unlist(ss)[4*(1:length(t_EN$doc_id))-1]
-t_EN$JointDecision <- unlist(ss)[4*(1:length(t_EN$doc_id))]
+t_EN$Pair <- unlist(ss)[5*(1:length(t_EN$doc_id))-4]
+t_EN$Session <- unlist(ss)[5*(1:length(t_EN$doc_id))-3]
+t_EN$JointDecision <- unlist(ss)[5*(1:length(t_EN$doc_id))-2]
+t_EN$Interlocutor <- unlist(ss)[5*(1:length(t_EN$doc_id))-1]
+t_EN$Turn <- unlist(ss)[5*(1:length(t_EN$doc_id))]
 
 ss <- str_split(t_DK$doc_id,"_")
-t_DK$Pair <- unlist(ss)[4*(1:length(t_DK$doc_id))-3]
-t_DK$Session <- unlist(ss)[4*(1:length(t_DK$doc_id))-2]
-t_DK$Interlocutor <- unlist(ss)[4*(1:length(t_DK$doc_id))-1]
-t_DK$JointDecision <- unlist(ss)[4*(1:length(t_DK$doc_id))]
+t_DK$Pair <- unlist(ss)[5*(1:length(t_DK$doc_id))-4]
+t_DK$Session <- unlist(ss)[5*(1:length(t_DK$doc_id))-3]
+t_DK$JointDecision <- unlist(ss)[5*(1:length(t_DK$doc_id))-2]
+t_DK$Interlocutor <- unlist(ss)[5*(1:length(t_DK$doc_id))-1]
+t_DK$Turn <- unlist(ss)[5*(1:length(t_DK$doc_id))]
 
 d_EN <- d_EN[order(d_EN$Pair,d_EN$Session,d_EN$JointDecision,d_EN$Interlocutor),]
 d_DK <- d_DK[order(d_DK$Pair,d_DK$Session,d_DK$JointDecision,d_DK$Interlocutor),]
@@ -443,44 +443,364 @@ for (delay in c(1)) {
   fileName <- paste0("data/AlignmentData_DK",delay,"Session.csv")
   write_csv(d_DK,path=fileName) 
 }
-d_EN$Pair <- as.factor(d_EN$Pair)
-d_EN$Test <- ifelse(d_EN$Session %in% c(1,2,3), 0, 1)
-ggplot(d_EN,aes(Session,SemanticAlignment)) + 
-  geom_point(aes(color = Pair)) + 
-  facet_grid(. ~ Test) +
-  theme_classic() 
 
-d_DK$Pair <- as.factor(d_DK$Pair)
-d_DK$Test <- ifelse(d_DK$Session %in% c(1,2,3), 0, 1)
-d_DK$Session <- parse_number(d_DK$Session)
-ggplot(subset(d_DK, Session!=0),aes(Session,SemanticAlignment)) + 
-  geom_point(aes(color = Pair), alpha=0.01) + 
-  geom_smooth(aes(color = Pair), method=lm, se=F, alpha=0.3) +
-  geom_smooth(method=lm, color = "black", fill="black") +
-  facet_grid(. ~ Test) +
-  theme_classic() 
+## Now by turn
+for (p in unique(d_EN$Pair)){
+   for (s in unique(d_EN$Session[d_EN$Pair==p])){
+     d_EN$Turn[d_EN$Pair==p & d_EN$Session==s] <- seq(nrow(d_EN[d_EN$Pair==p & d_EN$Session==s,]) )
+  }
+}
+for (p in unique(d_DK$Pair)){
+  for (s in unique(d_DK$Session[d_DK$Pair==p])){
+    d_DK$Turn[d_DK$Pair==p & d_DK$Session==s] <- seq(nrow(d_DK[d_DK$Pair==p & d_DK$Session==s,]) )
+  }
+}
+d_EN$doc_id <- paste0(d_EN$Pair,"_", d_EN$Session)
+t_EN$doc_id <- paste0(t_EN$Pair,"_", t_EN$Session)
 
-ggplot(subset(d_DK, Session!=0),aes(Session,LexicalAlignmentLemmas)) + 
-  geom_point(aes(color = Pair), alpha=0.01) + 
-  geom_smooth(aes(color = Pair), method=lm, se=F, alpha=0.3) +
-  geom_smooth(method=lm, color = "black", fill="black") +
-  facet_grid(. ~ Test) +
-  theme_classic()  
+for (delay in c(1)) {
+  d_EN$LexicalAlignmentLemmas=NULL
+  d_EN$SemanticAlignment=NULL
+  
+  for (i in unique(d_EN$doc_id)){
+    print(i)
+    txt <- subset(d_EN, doc_id==i)
+    lists <- subset(t_EN, doc_id==i & upos != "PUNCT")
+    
+    Pair <- str_split(i,"_")[[1]][1]
+    Session <- str_split(i,"_")[[1]][2]
+    
+    for (u in (delay+1):max(txt$Turn,na.rm=T)){
+      if(txt$JointDecision[u]==txt$JointDecision[u-1]){
+        # Isolating the utterances
+        u1 <- subset(lists,Turn==(u-delay))
+        u2 <- subset(lists,Turn==u)
+        
+        Interlocutor <- d$Interlocutor[d_EN$doc_id==i & d_EN$Turn==u]
+        
+        # Second the lexical cosine similarity: Lemmas
+        d_EN$LexicalAlignmentLemmas[d_EN$doc_id==i & d_EN$Turn==u] <- cosine_similarity(u1$lemma,u2$lemma)
+        
+        # Finally semantic alignment
+        v1 <- colMeans(subset(u1, select=V2:V301),na.rm=T)
+        v2 <- colMeans(subset(u2, select=V2:V301),na.rm=T)
+        d_EN$SemanticAlignment[d_EN$doc_id==i & d_EN$Turn==u] <- sum(v1*v2) / (sqrt(sum(v1^2))*sqrt(sum(v2^2)))
+      }
+    }
+  }
+  fileName <- paste0("data/AlignmentData_EN",delay,"Turn.csv")
+  write_csv(d_EN,path=fileName) 
+}
 
-dA <- d_DK %>% group_by(Pair, Session, Test) %>% 
-  summarize(Lexical = mean(LexicalAlignmentLemmas, na.rm=T),
-            Semantic = mean(SemanticAlignment, na.rm=T)) %>% 
-  mutate(Session = ifelse(Session==0, 3, Session))
+d_DK <- subset(d_DK, !is.na(JointDecision))
+d_DK$doc_id <- paste0(d_DK$Pair,"_", d_DK$Session)
+t_DK$doc_id <- paste0(t_DK$Pair,"_", t_DK$Session)
 
-PerformanceTraining <- as.data.frame(ranef(Analysis1a_m)$subject[, , "conditionDyads"][1:26,]) %>%
-  mutate(Pair = c(1:26)) %>%
-  rename(TrainingPerformance = Estimate)%>%
-  select(Pair, TrainingPerformance)
-PerformanceTest <- as.data.frame(ranef(Analysis1b_m)$subject[, , "conditionDyads"][1:26,]) %>%
-  mutate(Pair = c(1:26)) %>%
-  rename(TestPerformance = Estimate) %>%
-  select(Pair, TestPerformance)
-x <- merge(PerformanceTraining, PerformanceTest)
-x <- merge(subset(dA, Session==1),x)
+for (delay in c(1)) {
+  d_DK$LexicalAlignmentLemmas=NULL
+  d_DK$SemanticAlignment=NULL
+  
+  for (i in unique(d_DK$doc_id)){
+    print(i)
+    txt <- subset(d_DK, doc_id==i)
+    lists <- subset(t_DK, doc_id==i & upos != "PUNCT")
+    
+    Pair <- str_split(i,"_")[[1]][1]
+    Session <- str_split(i,"_")[[1]][2]
+    
+    for (u in (delay+1):max(txt$Turn)){
+      if(txt$JointDecision[u]==txt$JointDecision[u-1]){
+      
+      # Isolating the utterances
+      u1 <- subset(lists,Turn==(u-delay))
+      u2 <- subset(lists,Turn==u)
+      
+      # Second the lexical cosine similarity: Lemmas
+      d_DK$LexicalAlignmentLemmas[d_DK$doc_id==i & d_DK$Turn==u] <- cosine_similarity(u1$lemma,u2$lemma)
+      
+      # Finally semantic alignment
+      v1 <- colMeans(subset(u1, select=V2:V301),na.rm=T)
+      v2 <- colMeans(subset(u2, select=V2:V301),na.rm=T)
+      d_DK$SemanticAlignment[d_DK$doc_id==i & d_DK$Turn==u] <- sum(v1*v2) / (sqrt(sum(v1^2))*sqrt(sum(v2^2)))
+      }
+    }
+  }
+  fileName <- paste0("data/AlignmentData_DK",delay,"Turn.csv")
+  write_csv(d_DK,path=fileName) 
+}
+
+### Calculate alignment by Pair
+
+pacman::p_load(janitor,tidyverse,here,brms)
+
+d_EN <- read_csv("data/AlignmentData_EN1Turn.csv")
+d_DK <- read_csv("data/AlignmentData_DK1Turn.csv")
+janitor::compare_df_cols(d_DK, d_EN)
+d <- rbind(d_DK, d_EN) %>%
+  mutate(
+    Session = as.factor(Session),
+    LexicalAlignmentLemmas = ifelse(LexicalAlignmentLemmas>0.99, 0.99, LexicalAlignmentLemmas),
+    SemanticAlignment = ifelse(SemanticAlignment > 0.99, 0.99, ifelse(SemanticAlignment<0.01, 0.01,SemanticAlignment)))
+
+LexicalAlignment_f <- bf(
+  LexicalAlignmentLemmas ~ 0 + Session + (0 + Session | p | Pair),
+  zi ~ 0 + Session + (0 + Session | p | Pair)
+)
+
+get_prior(LexicalAlignment_f, d, family=zero_inflated_beta)
+
+prior <- c(
+  prior(lkj(5), class = cor),
+  prior(normal(0, .3), class = sd),
+  prior(normal(0, .3), class = sd, dpar = zi),
+  prior(normal(0, .3), class = b),
+  prior(normal(0, .3), class = b, dpar = zi)
+)
+
+LexicalAlignment_m <- brm(
+  LexicalAlignment_f,
+  d,
+  family = zero_inflated_beta(),
+  cores = 2,
+  chains = 2,
+  control = list(adapt_delta=0.99),
+  prior = prior,
+  sample_prior = T,
+  file = here("models","LexicalAlignment_m")
+)
+
+plot(hypothesis(LexicalAlignment_m, "Session1 > 0"))
+plot(hypothesis(LexicalAlignment_m, "zi_Session1 > 0"))
+plot(hypothesis(LexicalAlignment_m, "Session2 > 0"))
+plot(hypothesis(LexicalAlignment_m, "zi_Session2 > 0"))
+plot(hypothesis(LexicalAlignment_m, "Session3 > 0"))
+plot(hypothesis(LexicalAlignment_m, "zi_Session3 > 0"))
+
+plot(hypothesis(LexicalAlignment_m, "Session1a > 0"))
+plot(hypothesis(LexicalAlignment_m, "zi_Session1a > 0"))
+plot(hypothesis(LexicalAlignment_m, "Session2a > 0"))
+plot(hypothesis(LexicalAlignment_m, "zi_Session2a > 0"))
+plot(hypothesis(LexicalAlignment_m, "Session3a > 0"))
+plot(hypothesis(LexicalAlignment_m, "zi_Session3a > 0"))
+
+
+plot(hypothesis(LexicalAlignment_m, "Session1 > 0", class="sd", group="Pair"))
+plot(hypothesis(LexicalAlignment_m, "zi_Session1 > 0", class="sd", group="Pair"))
+plot(hypothesis(LexicalAlignment_m, "Session2 > 0", class="sd", group="Pair"))
+plot(hypothesis(LexicalAlignment_m, "zi_Session2 > 0", class="sd", group="Pair"))
+plot(hypothesis(LexicalAlignment_m, "Session3 > 0", class="sd", group="Pair"))
+plot(hypothesis(LexicalAlignment_m, "zi_Session3 > 0", class="sd", group="Pair"))
+
+plot(hypothesis(LexicalAlignment_m, "Session1a > 0", class="sd", group="Pair"))
+plot(hypothesis(LexicalAlignment_m, "zi_Session1a > 0", class="sd", group="Pair"))
+plot(hypothesis(LexicalAlignment_m, "Session2a > 0", class="sd", group="Pair"))
+plot(hypothesis(LexicalAlignment_m, "zi_Session2a > 0", class="sd", group="Pair"))
+plot(hypothesis(LexicalAlignment_m, "Session3a > 0", class="sd", group="Pair"))
+plot(hypothesis(LexicalAlignment_m, "zi_Session3a > 0", class="sd", group="Pair"))
+
+plot(hypothesis(LexicalAlignment_m, "Session1__Session1a > 0", class="cor", group="Pair"))
+
+SemanticAlignment_f <- bf(
+  SemanticAlignment ~ 0 + Session + (0 + Session | Pair)
+)
+get_prior(SemanticAlignment_f, d, family=Beta())
+
+prior <- c(
+  prior(normal(0, .3), class = b),
+  prior(normal(0, .3), class = sd)
+)
+
+SemanticAlignment_m <- brm(
+  SemanticAlignment_f,
+  d,
+  family = Beta(),
+  cores = 2,
+  chains = 2,
+  control = list(adapt_delta=0.99),
+  prior = prior,
+  sample_prior = T,
+  file = here("models","SemanticAlignment_m")
+)
+
+plot(hypothesis(SemanticAlignment_m, "Session1 > 0"))
+plot(hypothesis(SemanticAlignment_m, "Session2 > 0"))
+plot(hypothesis(SemanticAlignment_m, "Session3 > 0"))
+plot(hypothesis(SemanticAlignment_m, "Session1a > 0"))
+plot(hypothesis(SemanticAlignment_m, "Session2a > 0"))
+plot(hypothesis(SemanticAlignment_m, "Session3a > 0"))
+
+plot(hypothesis(SemanticAlignment_m, "Session1 > 0", class="sd", group="Pair"))
+plot(hypothesis(SemanticAlignment_m, "Session2 > 0", class="sd", group="Pair"))
+plot(hypothesis(SemanticAlignment_m, "Session3 > 0", class="sd", group="Pair"))
+plot(hypothesis(SemanticAlignment_m, "Session1a > 0", class="sd", group="Pair"))
+plot(hypothesis(SemanticAlignment_m, "Session2a > 0", class="sd", group="Pair"))
+plot(hypothesis(SemanticAlignment_m, "Session3a > 0", class="sd", group="Pair"))
+
+```
+
+```{r}
+# Extract individual variability
+pacman::p_load(tidyverse,brms, here)
+d <- read_csv(here("data","AlienData.txt")) %>%
+  mutate(
+    condition = factor(condition, levels=c("1", "2"), labels=c("Dyads", "Individuals")),
+    subject = as.factor(ifelse(condition=='Dyads', subject + 30, subject)),
+    session = as.numeric(session),
+    cycle = as.numeric(ifelse(cycle == 0, 4, cycle)),
+    trial = as.numeric(trial),
+    test = as.factor(test),
+    stimulus = as.factor(paste(stimulus,session)),
+    category = as.factor(category),
+    response = as.factor(response),
+    dangerous = as.factor(dangerous),
+    nutricious = as.factor(nutricious),
+    correct = as.factor(correct),
+    cumulative = as.numeric(cumulative),
+    RT = as.numeric(RT),
+    condition = relevel(condition, "Individuals")
+  )
+dSurvey <- read_delim(here("data", "AlienSurvey.txt"), delim = " ") %>%
+  mutate(
+    Subject = as.factor(Subject),
+    Condition = as.factor(Condition)
+  )
+
+LexicalAlignment_m <- readRDS(here("models", "LexicalAlignment_m.rds"))
+SemanticAlignment_m <- readRDS(here("models", "SemanticAlignment_m.rds"))
+Analysis1a_m <- readRDS(here("models", "Analysis1a_m1.rds"))
+Analysis1b_m <- readRDS(here("models", "Analysis1b_m.rds"))
+Analysis1aTrial_m3<- readRDS(here("models", "Analysis1aTrial_m3.rds"))
+
+AlignmentS1 = data.frame(
+  Pair = rownames(ranef(LexicalAlignment_m)$Pair[, , "zi_Session1"]),
+  LexicalRate = - (ranef(LexicalAlignment_m)$Pair[, , "zi_Session1"][,1]),
+  LexicalLevel = (ranef(LexicalAlignment_m)$Pair[, , "Session1"][,1]),
+  SemanticLevel = (ranef(SemanticAlignment_m)$Pair[, , "Session1"][,1]),
+  Session = 1,
+  Phase = "Training"
+)
+AlignmentS2 = data.frame(
+  Pair = rownames(ranef(LexicalAlignment_m)$Pair[, , "zi_Session2"]),
+  LexicalRate = - (ranef(LexicalAlignment_m)$Pair[, , "zi_Session2"][,1]),
+  LexicalLevel = (ranef(LexicalAlignment_m)$Pair[, , "Session2"][,1]),
+  SemanticLevel = (ranef(SemanticAlignment_m)$Pair[, , "Session2"][,1]),
+  Session = 2,
+  Phase = "Training"
+)
+AlignmentS3 = data.frame(
+  Pair = rownames(ranef(LexicalAlignment_m)$Pair[, , "zi_Session3"]),
+  LexicalRate = - (ranef(LexicalAlignment_m)$Pair[, , "zi_Session3"][,1]),
+  LexicalLevel = (ranef(LexicalAlignment_m)$Pair[, , "Session3"][,1]),
+  SemanticLevel = (ranef(SemanticAlignment_m)$Pair[, , "Session3"][,1]),
+  Session = 3,
+  Phase = "Training"
+)
+
+AlignmentS1a = data.frame(
+  Pair = rownames(ranef(LexicalAlignment_m)$Pair[, , "zi_Session1a"]),
+  LexicalRate = - (ranef(LexicalAlignment_m)$Pair[, , "zi_Session1a"][,1]),
+  LexicalLevel = (ranef(LexicalAlignment_m)$Pair[, , "Session1a"][,1]),
+  SemanticLevel = (ranef(SemanticAlignment_m)$Pair[, , "Session1a"][,1]),
+  Session = 1,
+  Phase = "Test"
+)
+AlignmentS2a = data.frame(
+  Pair = rownames(ranef(LexicalAlignment_m)$Pair[, , "zi_Session2a"]),
+  LexicalRate = - (ranef(LexicalAlignment_m)$Pair[, , "zi_Session2a"][,1]),
+  LexicalLevel = (ranef(LexicalAlignment_m)$Pair[, , "Session2a"][,1]),
+  SemanticLevel = (ranef(SemanticAlignment_m)$Pair[, , "Session2a"][,1]),
+  Session = 2,
+  Phase = "Test"
+)
+AlignmentS3a = data.frame(
+  Pair = rownames(ranef(LexicalAlignment_m)$Pair[, , "zi_Session3a"]),
+  LexicalRate = - (ranef(LexicalAlignment_m)$Pair[, , "zi_Session3a"][,1]),
+  LexicalLevel = (ranef(LexicalAlignment_m)$Pair[, , "Session3a"][,1]),
+  SemanticLevel = (ranef(SemanticAlignment_m)$Pair[, , "Session3a"][,1]),
+  Session = 3,
+  Phase = "Test"
+)
+
+Alignment <- rbind(AlignmentS1,AlignmentS2, AlignmentS3,AlignmentS1a, AlignmentS2a, AlignmentS3a)
+AlignmentTraining <- rbind(AlignmentS1, AlignmentS2, AlignmentS3) %>%
+  rename(LexicalRateTraining = LexicalRate,
+         LexicalLevelTraining = LexicalLevel,
+         SemanticLevelTraining = SemanticLevel
+         ) %>% select(-Phase)
+
+AlignmentTest <- rbind(AlignmentS1a, AlignmentS2a, AlignmentS3a)%>%
+  rename(LexicalRateTest = LexicalRate,
+         LexicalLevelTest = LexicalLevel,
+         SemanticLevelTest = SemanticLevel
+         ) %>% select(-Phase)
+Alignment2 <- merge(AlignmentTraining,AlignmentTest, all=T)
+
+# Merge it with performance data
+PerformanceTraining <- d %>% subset(test==0) %>%
+  mutate(Preds = predict(Analysis1a_m)) %>%
+  subset(condition == "Dyads") %>%
+  group_by(subject, session) %>%
+  dplyr::summarise(
+    PerformanceP = mean(Preds, na.rm=T),
+    Performance = mean(as.numeric(correct)-1, na.rm=T)) %>%
+  mutate(Phase = "Training")
+
+PerformanceTest <- d %>% subset(test==1) %>%
+  mutate(Preds = predict(Analysis1b_m)) %>%
+  subset(condition == "Dyads") %>%
+  group_by(subject, session) %>%
+  dplyr::summarise(
+    PerformanceP = mean(Preds, na.rm=T),
+    Performance = mean(as.numeric(correct)-1, na.rm=T)) %>%
+  mutate(Phase = "Test")
+        
+PerformanceCycle <- d %>% subset(cycle==1) %>%
+  mutate(Preds = predict(Analysis1aTrial_m3)) %>%
+  subset(condition == "Dyads" & trial==32) %>%
+  group_by(subject, session) %>%
+  dplyr::summarise(
+    PerformanceCycleP = mean(Preds, na.rm=T),
+    PerformanceCycle = mean(as.numeric(correct)-1, na.rm=T))
+
+Performance <- rbind(PerformanceTraining, PerformanceTest)
+
+PerformanceTraining <- PerformanceTraining %>%
+  rename(PerformanceTrainingP = PerformanceP,
+         PerformanceTraining = Performance
+         ) %>% select(-Phase)
+PerformanceTest <- PerformanceTest %>%
+  rename(PerformanceTestP = PerformanceP,
+         PerformanceTest = Performance
+         ) %>% select(-Phase)
+
+Performance2 <- merge(PerformanceTraining, PerformanceTest, all=T)
+Performance2 <- merge(Performance2, PerformanceCycle, all=T)
+Performance2 <- Performance2 %>% mutate(
+  Pair = parse_number(as.character(subject))-30
+) %>% select(-subject) %>%
+  rename(Session=session)
+
+FinalData <- merge(Alignment2, Performance2, all=T)
+
+# Add motivation and effort and RT
+dS <- dSurvey %>% subset(Condition=="Pair") %>% select(-Condition, -Row, -Subject)
+FinalData <- merge(FinalData,dS)
+FinalData <- FinalData %>% mutate(Session = as.factor(Session))
+## STANDARDIZE BY SESSION?
+
+for (s in unique(FinalData$Session)) {
+  
+  FinalData$PerformanceTestP[FinalData$Session == s] =
+    scale(FinalData$PerformanceTestP[FinalData$Session == s])
+  
+  FinalData$PerformanceTrainingP[FinalData$Session == s] =
+    scale(FinalData$PerformanceTrainingP[FinalData$Session == s])
+  
+  FinalData$SemanticLevelTraining[FinalData$Session == s] = scale(FinalData$SemanticLevelTraining[FinalData$Session == s])
+  
+  FinalData$SemanticLevelTest[FinalData$Session == s] = scale(FinalData$SemanticLevelTest[FinalData$Session == s])
+}
+
+write_csv(FinalData, here("data", "IndividualDifferences.csv"))
 ```
 

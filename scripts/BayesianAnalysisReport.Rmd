@@ -5,19 +5,13 @@ date: "14 May 2020"
 output: html_document
 ---
 
-### Analysis 1a - Performance (correctness) as a function of condition (individual vs dyad) and complexity (session)
-### Analysis 1b - Test Performance (correctness) as a function of condition (individual vs dyad) and complexity (session)
+# Hypotheses
 
-## Analysis 2 -  Extracting learning curve from each participant/dyad and predicting:
-#       - condition (do dyads and participants have different learning curves?)
-#          . also by first cycle only
-#       - post-test performance (does learning curve reflect rule learning?)
-
-### Analysis 3a - cosine similarity and performance (training to training and training to test)
-### Analysis 3a - speech ratio and performance (training to training and training to test)
-
-
-### Analysis 4 - Controlling for differences in RT, effort and motivation by condition
+H1. Groups will outperform individuals in the training sessions across levels of complexity.
+H2. Groups will outperform individuals in abstraction levels
+H2a. Groups will outperform individuals in the transfer task across levels of complexity. 
+H2b. Groups will outperform individuals in the first cycle of each session (before any tokens get repeated).
+H3. Variability in group performance will be contingent on semantic distance
 
 
 # Load libraries and data
@@ -71,11 +65,10 @@ dSurvey <- read_delim(here("data", "AlienSurvey.txt"), delim = " ") %>%
 ```
 
 
-### Analysis 1a - Performance (correctness) as a function of condition (individual vs dyad) and complexity (session)
-
-N.B. We are excluding the post-test performance (rule-testing)
+## Analysis 1 - Performance (correctness) as a function of condition (individual vs dyad) and complexity (session) in the training sessions
 
 We use a mixed logistic regression model to assess main effects of condition (pair vs. individual) and complexity (session 1 to 3). We account for individual variability (random intercept plus random slopes due to session) and stimulus variability (random intercepts).
+Hypothesis testing is on the %
 
 ### The first model tests main effects
 
@@ -84,16 +77,16 @@ We use a mixed logistic regression model to assess main effects of condition (pa
 d1 <- d %>% 
   subset(test == 0)
 
-Analysis1a_f <- bf(
+H1_f <- bf(
   correct ~ 0 + condition + condition:mo(session) + 
     (0 + condition + condition:mo(session) | subject) + 
     (0 + condition | stimulus)
 )
 
-get_prior(Analysis1a_f, d1, family = bernoulli)
+get_prior(H1_f, d1, family = bernoulli)
 
 
-Analysis1a_prior <- c(
+H1_prior <- c(
   prior(normal(0, 1), class = b),
   prior(normal(0,.5), class = b, coef = "conditionDyads:mosession"),
   prior(normal(0,.5), class = b, coef = "conditionIndividuals:mosession"),
@@ -101,47 +94,47 @@ Analysis1a_prior <- c(
   prior(normal(0, .3), class = sd)
 )
 
-Analysis1a_m_prior <- brm(
-  Analysis1a_f, 
+H1_m_prior <- brm(
+  H1_f, 
   d1, 
   family = bernoulli,
-  prior = Analysis1a_prior,
+  prior = H1_prior,
   sample_prior = "only",
   chains = 2,
   cores = 2,
-  file = here("models","Analysis1a_m_prior"),
+  file = here("models","H1_m_prior"),
   control = list(adapt_delta=0.9, max_treedepth=20)
   )
 
 ## Checking prior predictions. Looks good
-LogOddsPreds <- posterior_linpred(Analysis1a_m_prior)
+LogOddsPreds <- posterior_linpred(H1_m_prior)
 rethinking::dens(
   inv_logit_scaled(LogOddsPreds[1:2000,])
 )
 
-Analysis1a_m <- brm(
-  Analysis1a_f, 
+H1_m <- brm(
+  H1_f, 
   d1, 
   family = bernoulli,
-  prior = Analysis1a_prior,
+  prior = H1_prior,
   sample_prior = TRUE,
   chains = 2,
   cores = 2,
   iter = 4000,
-  file = here("models","Analysis1a_m1"),
+  file = here("models","H1_m1"),
   control = list(adapt_delta=0.9, max_treedepth=20)
   )
 
 ### Let's check model quality
-summary(Analysis1a_m)  ## Any warnings?
-LogOddsPreds <- posterior_linpred(Analysis1a_m)
+summary(H1_m)  ## Any warnings?
+LogOddsPreds <- posterior_linpred(H1_m)
 rethinking::dens(
   inv_logit_scaled(LogOddsPreds[1:4000,])
 )
 
 ## The markov chains (raw and ranked) have to look like they mixed well (overlapped)
 color_scheme_set("viridis")
-mcmc_trace(Analysis1a_m,
+mcmc_trace(H1_m,
            pars = c("b_conditionIndividuals", "b_conditionDyads",
                     "bsp_conditionIndividuals:mosession", "bsp_conditionDyads:mosession",
            "sd_subject__conditionIndividuals", "sd_subject__conditionDyads",
@@ -149,7 +142,7 @@ mcmc_trace(Analysis1a_m,
            "sd_stimulus__conditionIndividuals", "sd_stimulus__conditionDyads")) + 
   theme_classic()
 
-mcmc_rank_overlay(Analysis1a_m,
+mcmc_rank_overlay(H1_m,
                   pars = c("b_conditionIndividuals", "b_conditionDyads",
                     "bsp_conditionIndividuals:mosession", "bsp_conditionDyads:mosession",
            "sd_subject__conditionIndividuals", "sd_subject__conditionDyads",
@@ -157,22 +150,22 @@ mcmc_rank_overlay(Analysis1a_m,
            "sd_stimulus__conditionIndividuals", "sd_stimulus__conditionDyads")) + theme_classic()
 
 # The posteriors have to have moved and gotten more confident than the priors
-p1 <- plot(hypothesis(Analysis1a_m,"conditionIndividuals > 0"))[[1]]
-p2 <- plot(hypothesis(Analysis1a_m,"conditionDyads > 0"))[[1]]
-p3 <- plot(hypothesis(Analysis1a_m,"conditionIndividuals > 0", class="sd", group="subject"))
-p4 <- plot(hypothesis(Analysis1a_m,"conditionDyads > 0", class="sd", group="subject"))
-p5 <- plot(hypothesis(Analysis1a_m,"conditionIndividuals > 0", class="sd", group="stimulus"))
-p6 <- plot(hypothesis(Analysis1a_m,"conditionDyads > 0", class="sd", group="stimulus"))
-p7 <- plot(hypothesis(Analysis1a_m,"conditionIndividuals:mosession > 0", class="bsp"))
-p8 <- plot(hypothesis(Analysis1a_m,"conditionDyads:mosession > 0", class="bsp"))
-p9 <- plot(hypothesis(Analysis1a_m,"conditionDyads:mosession > conditionIndividuals:mosession", class="bsp"))
-p10 <- plot(hypothesis(Analysis1a_m,"conditionIndividuals:mosession > 0", class="sd", group="subject"))
-p11 <- plot(hypothesis(Analysis1a_m,"conditionDyads:mosession > 0", class="sd", group="subject"))
+p1 <- plot(hypothesis(H1_m,"conditionIndividuals > 0"))[[1]]
+p2 <- plot(hypothesis(H1_m,"conditionDyads > 0"))[[1]]
+p3 <- plot(hypothesis(H1_m,"conditionIndividuals > 0", class="sd", group="subject"))
+p4 <- plot(hypothesis(H1_m,"conditionDyads > 0", class="sd", group="subject"))
+p5 <- plot(hypothesis(H1_m,"conditionIndividuals > 0", class="sd", group="stimulus"))
+p6 <- plot(hypothesis(H1_m,"conditionDyads > 0", class="sd", group="stimulus"))
+p7 <- plot(hypothesis(H1_m,"conditionIndividuals:mosession > 0", class="bsp"))
+p8 <- plot(hypothesis(H1_m,"conditionDyads:mosession > 0", class="bsp"))
+p9 <- plot(hypothesis(H1_m,"conditionDyads:mosession > conditionIndividuals:mosession", class="bsp"))
+p10 <- plot(hypothesis(H1_m,"conditionIndividuals:mosession > 0", class="sd", group="subject"))
+p11 <- plot(hypothesis(H1_m,"conditionDyads:mosession > 0", class="sd", group="subject"))
 
 ## Hypothesis testing
 ## Performance is best for dyads
 
-Post <- posterior_samples(Analysis1a_m, pars = c(
+Post <- posterior_samples(H1_m, pars = c(
   "b_conditionIndividuals", "b_conditionDyads",
   "bsp_conditionIndividuals:mosession", "bsp_conditionDyads:mosession",
   "simo_conditionIndividuals:mosession1","simo_conditionDyads:mosession1")) %>%
@@ -249,7 +242,7 @@ round(sd(Post$IndividualsS3),2)*100
 round(quantile(Post$IndividualsS3, c(.025, 0.975)),2)*100
 
 ## Plotting
-plot(conditional_effects(Analysis1a_m), plot = FALSE)[[3]] + 
+plot(conditional_effects(H1_m), plot = FALSE)[[3]] + 
   scale_x_continuous(breaks=c(1, 2, 3)) + 
   #ylim(.25, 1) +
   theme_classic()
@@ -277,712 +270,27 @@ ggplot(d1, aes(session, Accuracy, color = condition)) +
   scale_x_continuous(breaks=c(1, 2, 3)) + 
   theme_classic()
 
-## What about j
-
-## Now looking in details at the learning within trial
-
-### First by making session into a factor (monotonic interactions are a bit trickier, so we build them only after this)
-d1 <- d1 %>% mutate(
-  sessionF = as.factor(session)
-)
-
-
-Analysis1aTrial_f <- bf(
-  correct ~ 0 + condition:sessionF + condition:sessionF:mo(trial) + 
-    (0 + condition:sessionF + condition:sessionF:mo(trial) | subject) + 
-    (0 + condition | stimulus)
-  )
-
-get_prior(Analysis1aTrial_f, d1)
-
-Analysis1aTrial_prior <- c(
-  prior(normal(0,.5), class = b),
-  prior(lkj(5), class = cor),
-  prior(normal(0, .5), class = sd),
-  prior(normal(0, .1), class = sd, coef = "conditionIndividuals:sessionF1", group = "subject"),
-  prior(normal(0, .1), class = sd, coef = "conditionIndividuals:sessionF2", group = "subject"),
-  prior(normal(0, .1), class = sd, coef = "conditionIndividuals:sessionF3", group = "subject"),
-  prior(normal(0, .1), class = sd, coef = "conditionDyads:sessionF1", group = "subject"),
-  prior(normal(0, .1), class = sd, coef = "conditionDyads:sessionF2", group = "subject"),
-  prior(normal(0, .1), class = sd, coef = "conditionDyads:sessionF3", group = "subject"),
-  prior(normal(0, .05), class = sd, coef = "conditionIndividuals:sessionF1:motrial", group = "subject"),
-  prior(normal(0, .05), class = sd, coef = "conditionIndividuals:sessionF2:motrial", group = "subject"),
-  prior(normal(0, .05), class = sd, coef = "conditionIndividuals:sessionF3:motrial", group = "subject"),
-  prior(normal(0, .05), class = sd, coef = "conditionDyads:sessionF1:motrial", group = "subject"),
-  prior(normal(0, .05), class = sd, coef = "conditionDyads:sessionF2:motrial", group = "subject"),
-  prior(normal(0, .05), class = sd, coef = "conditionDyads:sessionF3:motrial", group = "subject")
-)
-
-Analysis1aTrial_m <- brm(
-  Analysis1aTrial_f, 
-  d1, 
-  family = bernoulli,
-  prior = Analysis1aTrial_prior,
-  sample_prior = TRUE,
-  chains = 2,
-  cores = 2,
-  iter = 4000,
-  file = here("models","Analysis1aTrial_m1"),
-  control = list(adapt_delta=0.9, max_treedepth=20)
-  )
-Analysis1aTrial_m  <- add_criterion(Analysis1aTrial_m, 
-                                    criterion = c("loo", "bayes_R2"),
-                                    file = here("models","Analysis1aTrial_m1"))
-
-### Let's check model quality
-summary(Analysis1aTrial_m)  ## Any warnings?
-LogOddsPreds <- posterior_linpred(Analysis1aTrial_m)
-rethinking::dens(
-  inv_logit_scaled(LogOddsPreds[1:2000,])
-) # Any obvious bias?
-
-## The markov chains (raw and ranked) have to look like they mixed well (overlapped)
-mcmc_trace(Analysis1aTrial_m,
-           pars = c("b_conditionIndividuals:sessionF1", "b_conditionDyads:sessionF1",
-                    "b_conditionIndividuals:sessionF2", "b_conditionDyads:sessionF2",
-                    "b_conditionIndividuals:sessionF3", "b_conditionDyads:sessionF3",
-                    "bsp_conditionIndividuals:sessionF1:motrial", "bsp_conditionDyads:sessionF1:motrial",
-                    "bsp_conditionIndividuals:sessionF2:motrial", "bsp_conditionDyads:sessionF2:motrial",
-                    "bsp_conditionIndividuals:sessionF3:motrial", "bsp_conditionDyads:sessionF3:motrial",
-           "sd_subject__conditionIndividuals:sessionF1", "sd_subject__conditionDyads:sessionF1",
-           "sd_subject__conditionIndividuals:sessionF2","sd_subject__conditionDyads:sessionF2",
-           "sd_subject__conditionIndividuals:sessionF3","sd_subject__conditionDyads:sessionF3",
-           "sd_subject__conditionIndividuals:sessionF1:motrial", "sd_subject__conditionDyads:sessionF1:motrial",
-           "sd_subject__conditionIndividuals:sessionF2:motrial", "sd_subject__conditionDyads:sessionF2:motrial",
-           "sd_subject__conditionIndividuals:sessionF3:motrial", "sd_subject__conditionDyads:sessionF3:motrial",
-           "sd_stimulus__conditionIndividuals", "sd_stimulus__conditionDyads")) + 
-  theme_classic()
-
-mcmc_rank_overlay(Analysis1aTrial_m,
-                  pars = c("b_conditionIndividuals:sessionF1", "b_conditionDyads:sessionF1",
-                    "b_conditionIndividuals:sessionF2", "b_conditionDyads:sessionF2",
-                    "b_conditionIndividuals:sessionF3", "b_conditionDyads:sessionF3",
-                    "bsp_conditionIndividuals:sessionF1:motrial", "bsp_conditionDyads:sessionF1:motrial",
-                    "bsp_conditionIndividuals:sessionF2:motrial", "bsp_conditionDyads:sessionF2:motrial",
-                    "bsp_conditionIndividuals:sessionF3:motrial", "bsp_conditionDyads:sessionF3:motrial",
-           "sd_subject__conditionIndividuals:sessionF1", "sd_subject__conditionDyads:sessionF1",
-           "sd_subject__conditionIndividuals:sessionF2","sd_subject__conditionDyads:sessionF2",
-           "sd_subject__conditionIndividuals:sessionF3","sd_subject__conditionDyads:sessionF3",
-           "sd_subject__conditionIndividuals:sessionF1:motrial", "sd_subject__conditionDyads:sessionF1:motrial",
-           "sd_subject__conditionIndividuals:sessionF2:motrial", "sd_subject__conditionDyads:sessionF2:motrial",
-           "sd_subject__conditionIndividuals:sessionF3:motrial", "sd_subject__conditionDyads:sessionF3:motrial",
-           "sd_stimulus__conditionIndividuals", "sd_stimulus__conditionDyads")) + theme_classic()
-
-# The posteriors have to have moved and gotten more confident than the priors
-plot(hypothesis(Analysis1aTrial_m,"conditionIndividuals:sessionF1 > 0"))
-plot(hypothesis(Analysis1aTrial_m,"conditionIndividuals:sessionF2 > 0"))
-plot(hypothesis(Analysis1aTrial_m,"conditionIndividuals:sessionF3 > 0"))
-plot(hypothesis(Analysis1aTrial_m,"conditionDyads:sessionF1 > 0"))
-plot(hypothesis(Analysis1aTrial_m,"conditionDyads:sessionF2 > 0"))
-plot(hypothesis(Analysis1aTrial_m,"conditionDyads:sessionF3 > 0"))
-plot(hypothesis(Analysis1aTrial_m,"conditionIndividuals:sessionF1 > 0", class="sd", group="subject"))
-plot(hypothesis(Analysis1aTrial_m,"conditionIndividuals:sessionF2 > 0", class="sd", group="subject"))
-plot(hypothesis(Analysis1aTrial_m,"conditionIndividuals:sessionF3 > 0", class="sd", group="subject"))
-plot(hypothesis(Analysis1aTrial_m,"conditionDyads:sessionF1 > 0", class="sd", group="subject"))
-plot(hypothesis(Analysis1aTrial_m,"conditionDyads:sessionF2 > 0", class="sd", group="subject"))
-plot(hypothesis(Analysis1aTrial_m,"conditionDyads:sessionF3 > 0", class="sd", group="subject"))
-plot(hypothesis(Analysis1aTrial_m,"conditionIndividuals > 0", class="sd", group="stimulus"))
-plot(hypothesis(Analysis1aTrial_m,"conditionDyads > 0", class="sd", group="stimulus"))
-plot(hypothesis(Analysis1aTrial_m,"conditionIndividuals:sessionF1:motrial > 0", class="bsp"))
-plot(hypothesis(Analysis1aTrial_m,"conditionIndividuals:sessionF2:motrial > 0", class="bsp"))
-plot(hypothesis(Analysis1aTrial_m,"conditionIndividuals:sessionF3:motrial > 0", class="bsp"))
-plot(hypothesis(Analysis1aTrial_m,"conditionDyads:sessionF1:motrial > 0", class="bsp"))
-plot(hypothesis(Analysis1aTrial_m,"conditionDyads:sessionF2:motrial > 0", class="bsp"))
-plot(hypothesis(Analysis1aTrial_m,"conditionDyads:sessionF3:motrial > 0", class="bsp"))
-plot(hypothesis(Analysis1aTrial_m,"conditionIndividuals:sessionF1:motrial > 0", class="sd", group="subject"))
-plot(hypothesis(Analysis1aTrial_m,"conditionIndividuals:sessionF2:motrial > 0", class="sd", group="subject"))
-plot(hypothesis(Analysis1aTrial_m,"conditionIndividuals:sessionF3:motrial > 0", class="sd", group="subject"))
-plot(hypothesis(Analysis1aTrial_m,"conditionDyads:sessionF1:motrial > 0", class="sd", group="subject"))
-plot(hypothesis(Analysis1aTrial_m,"conditionDyads:sessionF2:motrial > 0", class="sd", group="subject"))
-plot(hypothesis(Analysis1aTrial_m,"conditionDyads:sessionF3:motrial > 0", class="sd", group="subject"))
-
-## Hypothesis testing
-### Dyads decrease performance less than individuals (F2 - F1)
-hypothesis(Analysis1aTrial_m,
-           "(conditionIndividuals:sessionF1:motrial - conditionIndividuals:sessionF2:motrial) >
-           (conditionDyads:sessionF1:motrial - conditionDyads:sessionF2:motrial)", 
-           class="bsp")
-### Dyads decrease performance less than individuals (F3 - F2)
-hypothesis(Analysis1aTrial_m,"(conditionIndividuals:sessionF2:motrial - conditionIndividuals:sessionF3:motrial) > (conditionDyads:sessionF2:motrial - conditionDyads:sessionF3:motrial)", class="bsp")
-
-
-## Now fully modeling that sessions are in order of complexity
-
-Analysis1aTrial_f2 <- bf(
-  correct ~ 0 + condition + condition:mo(session) + condition:mo(trial) + condition:mo(trial):mo(session) + 
-    (0 + condition + condition:mo(session) + condition:mo(trial) + condition:mo(trial):mo(session) | subject) + 
-    (0 + condition | stimulus)
-  )
-get_prior(Analysis1aTrial_f2, d1)
-
-Analysis1aTrial_prior2 <- c(
-  prior(normal(0,.5), class = b),
-  prior(normal(0, .05), class = b, coef = "conditionIndividuals:motrial"),
-  prior(normal(0, .05), class = b, coef = "conditionDyads:motrial"),
-  prior(normal(0, .05), class = b, coef = "conditionIndividuals:mosession:motrial"),
-  prior(normal(0, .05), class = b, coef = "conditionDyads:mosession:motrial"),
-  prior(lkj(5), class = cor),
-  prior(normal(0, .5), class = sd),
-  prior(normal(0, .05), class = sd, coef = "conditionIndividuals:motrial", group = "subject"),
-  prior(normal(0, .05), class = sd, coef = "conditionDyads:motrial", group = "subject"),
-  prior(normal(0, .05), class = sd, coef = "conditionIndividuals:mosession:motrial", group = "subject"),
-  prior(normal(0, .05), class = sd, coef = "conditionDyads:mosession:motrial", group = "subject")
-)
-
-Analysis1aTrial_m2 <- brm(
-  Analysis1aTrial_f2, 
-  d1, 
-  family = bernoulli,
-  prior = Analysis1aTrial_prior2,
-  sample_prior = TRUE,
-  chains = 2,
-  cores = 2,
-  iter = 4000,
-  file = here("models","Analysis1aTrial_m2"),
-  control = list(adapt_delta=0.9, max_treedepth=20)
-  )
-
-Analysis1aTrial_m2  <- add_criterion(Analysis1aTrial_m2, criterion = c("loo", "bayes_R2"))
-
-### Let's check model quality
-summary(Analysis1aTrial_m2)  ## Any warnings?
-LogOddsPreds <- posterior_linpred(Analysis1aTrial_m2)
-rethinking::dens(
-  inv_logit_scaled(LogOddsPreds[1:2000,])
-) # Any obvious bias?
-
-## The markov chains (raw and ranked) have to look like they mixed well (overlapped)
-mcmc_trace(Analysis1aTrial_m2,
-           pars = c("b_conditionIndividuals", "b_conditionDyads",
-                    "bsp_conditionIndividuals:mosession", "bsp_conditionDyads:mosession",
-                    "bsp_conditionIndividuals:motrial", "bsp_conditionDyads:motrial",
-                    "bsp_conditionIndividuals:mosession:motrial", "bsp_conditionDyads:mosession:motrial",
-           "sd_subject__conditionIndividuals", "sd_subject__conditionDyads",
-           "sd_subject__conditionIndividuals:mosession","sd_subject__conditionDyads:mosession",
-           "sd_subject__conditionIndividuals:motrial","sd_subject__conditionDyads:motrial",
-           "sd_subject__conditionIndividuals:mosession:motrial","sd_subject__conditionDyads:mosession:motrial",
-           "sd_stimulus__conditionIndividuals", "sd_stimulus__conditionDyads")) + 
-  theme_classic()
-
-mcmc_rank_overlay(Analysis1aTrial_m2,
-                  pars = c("b_conditionIndividuals", "b_conditionDyads",
-                    "bsp_conditionIndividuals:mosession", "bsp_conditionDyads:mosession",
-                    "bsp_conditionIndividuals:mosession:motrial", "bsp_conditionDyads:mosession:motrial",
-           "sd_subject__conditionIndividuals", "sd_subject__conditionDyads",
-           "sd_subject__conditionIndividuals:mosession","sd_subject__conditionDyads:mosession",
-           "sd_subject__conditionIndividuals:motrial","sd_subject__conditionDyads:motrial",
-           "sd_subject__conditionIndividuals:mosession:motrial","sd_subject__conditionDyads:mosession:motrial",
-           "sd_stimulus__conditionIndividuals", "sd_stimulus__conditionDyads")) + theme_classic()
-
-# The posteriors have to have moved and gotten more confident than the priors
-plot(hypothesis(Analysis1aTrial_m2,"conditionIndividuals > 0"))
-plot(hypothesis(Analysis1aTrial_m2,"conditionDyads > 0"))
-plot(hypothesis(Analysis1aTrial_m2,"conditionIndividuals:mosession > 0", class = "bsp"))
-plot(hypothesis(Analysis1aTrial_m2,"conditionDyads:mosession > 0", class = "bsp"))
-plot(hypothesis(Analysis1aTrial_m2,"conditionIndividuals:motrial > 0", class = "bsp"))
-plot(hypothesis(Analysis1aTrial_m2,"conditionDyads:motrial > 0", class = "bsp"))
-plot(hypothesis(Analysis1aTrial_m2,"conditionIndividuals:mosession:motrial > 0", class="bsp"))
-plot(hypothesis(Analysis1aTrial_m2,"conditionDyads:mosession:motrial > 0", class="bsp"))
-
-plot(hypothesis(Analysis1aTrial_m2,"conditionIndividuals > 0", class="sd", group="subject"))
-plot(hypothesis(Analysis1aTrial_m2,"conditionDyads > 0", class="sd", group="subject"))
-plot(hypothesis(Analysis1aTrial_m2,"conditionIndividuals:mosession > 0", class="sd", group="subject"))
-plot(hypothesis(Analysis1aTrial_m2,"conditionDyads:mosession > 0", class="sd", group="subject"))
-plot(hypothesis(Analysis1aTrial_m2,"conditionIndividuals:motrial > 0", class="sd", group="subject"))
-plot(hypothesis(Analysis1aTrial_m2,"conditionDyads:motrial > 0", class="sd", group="subject"))
-plot(hypothesis(Analysis1aTrial_m2,"conditionIndividuals:mosession:motrial > 0", class="sd", group="subject"))
-plot(hypothesis(Analysis1aTrial_m2,"conditionDyads:mosession:motrial > 0", class="sd", group="subject"))
-plot(hypothesis(Analysis1aTrial_m2,"conditionIndividuals > 0", class="sd", group="stimulus"))
-plot(hypothesis(Analysis1aTrial_m2,"conditionDyads > 0", class="sd", group="stimulus"))
-
-## Hypothesis testing
-
-### Dyads learn quicker than individuals
-### Dyads learning decreases less than individuals
-Post <- posterior_samples(Analysis1aTrial_m2, pars = c(
-  "b_conditionIndividuals", "b_conditionDyads",
-  "bsp_conditionIndividuals:mosession", "bsp_conditionDyads:mosession",
-  "simo_conditionIndividuals:mosession","simo_conditionDyads:mosession",
-  "bsp_conditionIndividuals:motrial", "bsp_conditionDyads:motrial",
-  "simo_conditionIndividuals:motrial","simo_conditionDyads:motrial",
-  "bsp_conditionIndividuals:mosession:motrial", "bsp_conditionDyads:mosession:motrial",
-  "simo_conditionIndividuals:mosession:motrial", "simo_conditionDyads:mosession:motrial")) 
-
-Post <- Post %>% mutate(
-  
-  IndividualLearningS1 = inv_logit_scaled(`b_conditionIndividuals` + 96 * `bsp_conditionIndividuals:motrial`) - inv_logit_scaled(`b_conditionIndividuals`),
-  
-  DyadLearningS1 = inv_logit_scaled(`b_conditionDyads` + 96 * `bsp_conditionDyads:motrial`) - inv_logit_scaled(`b_conditionDyads`),
-  
-  IndividualLearningS2 =  inv_logit_scaled(`b_conditionIndividuals` + 
-                       2 * `simo_conditionIndividuals:mosession1[1]` *
-                                       `bsp_conditionIndividuals:mosession` + 
-                       96 * 
-                       (`bsp_conditionIndividuals:motrial` + 
-                       `bsp_conditionIndividuals:mosession:motrial`
-                       )) - inv_logit_scaled(`b_conditionIndividuals` + 
-                       2 * `simo_conditionIndividuals:mosession1[1]` *
-                                       `bsp_conditionIndividuals:mosession`),
-  
-  DyadLearningS2 =  inv_logit_scaled(`b_conditionDyads` + 
-                       2 * `simo_conditionDyads:mosession1[1]` *
-                                       `bsp_conditionDyads:mosession` + 
-                       96 * 
-                       (`bsp_conditionDyads:motrial` + 
-                       `bsp_conditionDyads:mosession:motrial`
-                       )) - inv_logit_scaled(`b_conditionDyads` + 
-                       2 * `simo_conditionDyads:mosession1[1]` *
-                                       `bsp_conditionDyads:mosession`),
-  
-  IndividualLearningS3 =  inv_logit_scaled(`b_conditionIndividuals` + 
-                       3 * `simo_conditionIndividuals:mosession1[1]` *
-                                       `bsp_conditionIndividuals:mosession` + 
-                       96 * 
-                       (`bsp_conditionIndividuals:motrial` + 
-                       `bsp_conditionIndividuals:mosession:motrial`
-                       )) - inv_logit_scaled(`b_conditionIndividuals` + 
-                       3 * `simo_conditionIndividuals:mosession1[1]` *
-                                       `bsp_conditionIndividuals:mosession`),
-  
-  DyadLearningS3 =  inv_logit_scaled(`b_conditionDyads` + 
-                       3 * `simo_conditionDyads:mosession1[1]` *
-                                       `bsp_conditionDyads:mosession` + 
-                       96 * 
-                       (`bsp_conditionDyads:motrial` + 
-                       `bsp_conditionDyads:mosession:motrial`
-                       )) - inv_logit_scaled(`b_conditionDyads` + 
-                       3 * `simo_conditionDyads:mosession1[1]` *
-                                       `bsp_conditionDyads:mosession`),
-  
-  H1 = (DyadLearningS1 + DyadLearningS2 + DyadLearningS3)/3 - (IndividualLearningS1 + IndividualLearningS2 + IndividualLearningS3)/3, #Dyads learn quicker than individuals
-  H1S1 = DyadLearningS1  - IndividualLearningS1, 
-  H1S2 = DyadLearningS2  - IndividualLearningS2, 
-  H1S3 = DyadLearningS3  - IndividualLearningS3, 
-  H2 = (DyadLearningS1 - DyadLearningS3) - (IndividualLearningS1 - IndividualLearningS3), 
-  H
-)
-
-H1_test <- paste0("B = ", round(mean(Post$H1, na.rm = T), 2) * 100, 
-               ", SE = ", round(sd(Post$H1, na.rm = T), 2) * 100, 
-               ", 95% CI's = ", round(quantile(Post$H1, .025)[[1]], 2) * 100, 
-               " ", round(quantile(Post$H1, .975)[[1]],2)  * 100,
-               ", ER = ", round(sum(Post$H1 > 0)/sum(Post$H1 <= 0), 2),
-               ", credibility = ", round(sum(Post$H1 > 0)/nrow(Post), 2) * 100)
-
-H1S1_test <- paste0("B = ", round(mean(Post$H1S1, na.rm = T), 2) * 100, 
-               ", SE = ", round(sd(Post$H1S1, na.rm = T), 2) * 100, 
-               ", 95% CI's = ", round(quantile(Post$H1S1, .025)[[1]], 2) * 100, 
-               " ", round(quantile(Post$H1S1, .975)[[1]],2)  * 100,
-               ", ER = ", round(sum(Post$H1S1 > 0)/sum(Post$H1S1 <= 0), 2),
-               ", credibility = ", round(sum(Post$H1S1 > 0)/nrow(Post), 2) * 100)
-
-H1S2_test <- paste0("B = ", round(mean(Post$H1S2, na.rm = T), 2) * 100, 
-               ", SE = ", round(sd(Post$H1S2, na.rm = T), 2) * 100, 
-               ", 95% CI's = ", round(quantile(Post$H1S2, .025)[[1]], 2) * 100, 
-               " ", round(quantile(Post$H1S2, .975)[[1]],2)  * 100,
-               ", ER = ", round(sum(Post$H1S2 > 0)/sum(Post$H1S2 <= 0), 2),
-               ", credibility = ", round(sum(Post$H1S2 > 0)/nrow(Post), 2) * 100)
-
-H1S3_test <- paste0("B = ", round(mean(Post$H1S3, na.rm = T), 2) * 100, 
-               ", SE = ", round(sd(Post$H1S3, na.rm = T), 2) * 100, 
-               ", 95% CI's = ", round(quantile(Post$H1S3, .025)[[1]], 2) * 100, 
-               " ", round(quantile(Post$H1S3, .975)[[1]],2)  * 100,
-               ", ER = ", round(sum(Post$H1S3 > 0)/sum(Post$H1S3 <= 0), 2),
-               ", credibility = ", round(sum(Post$H1S3 > 0)/nrow(Post), 2) * 100)
-
-H1S3a_test <- paste0("B = ", round(mean(Post$H1S3 - Post$H1S1, na.rm = T), 2) * 100, 
-               ", SE = ", round(sd(Post$H1S3 - Post$H1S1, na.rm = T), 2) * 100, 
-               ", 95% CI's = ", round(quantile(Post$H1S3 - Post$H1S1, .025)[[1]], 2) * 100, 
-               " ", round(quantile(Post$H1S3 - Post$H1S1, .975)[[1]],2)  * 100,
-               ", ER = ", round(sum(Post$H1S3 - Post$H1S1 > 0)/sum(Post$H1S3 - Post$H1S1 <= 0), 2),
-               ", credibility = ", round(sum(Post$H1S3 - Post$H1S1 > 0)/nrow(Post), 2) * 100)
-
-H1S3aa_test <- paste0("B = ", round(mean(Post$DyadLearningS3 - Post$DyadLearningS1, na.rm = T), 2) * 100, 
-               ", SE = ", round(sd(Post$DyadLearningS3 - Post$DyadLearningS1, na.rm = T), 2) * 100, 
-               ", 95% CI's = ", round(quantile(Post$DyadLearningS3 - Post$DyadLearningS1, .025)[[1]], 2) * 100, 
-               " ", round(quantile(Post$DyadLearningS3 - Post$DyadLearningS1, .975)[[1]],2)  * 100,
-               ", ER = ", round(sum(Post$DyadLearningS3 - Post$DyadLearningS1 > 0)/sum(Post$DyadLearningS3 - Post$DyadLearningS1 <= 0), 2),
-               ", credibility = ", round(sum(Post$DyadLearningS3 - Post$DyadLearningS1 > 0)/nrow(Post), 2) * 100)
-
-H2_test <- paste0("B = ", round(mean(Post$H2, na.rm = T), 2) * 100, 
-               ", SE = ", round(sd(Post$H2, na.rm = T), 2) * 100, 
-               ", 95% CI's = ", round(quantile(Post$H2, .025)[[1]], 2) * 100, 
-               " ", round(quantile(Post$H2, .975)[[1]],2)  * 100,
-               ", ER = ", round(sum(Post$H2 > 0)/sum(Post$H1 <= 0), 2),
-               ", credibility = ", round(sum(Post$H2 > 0)/nrow(Post), 2) * 100)
-
-
-round(mean((Post$DyadLearningS1 + Post$DyadLearningS2 + Post$DyadLearningS3)/3),2)*100
-round(sd((Post$DyadLearningS1 + Post$DyadLearningS2 + Post$DyadLearningS3)/3),2)*100
-round(quantile((Post$DyadLearningS1 + Post$DyadLearningS2 + Post$DyadLearningS3)/3, c(.025, 0.975)),2)*100
-round(mean((Post$IndividualLearningS1 + Post$IndividualLearningS2 + Post$IndividualLearningS3)/3),2)*100
-round(sd((Post$IndividualLearningS1 + Post$IndividualLearningS2 + Post$IndividualLearningS3)/3),2)*100
-round(quantile((Post$IndividualLearningS1 + Post$IndividualLearningS2 + Post$IndividualLearningS3)/3, c(.025, 0.975)),2)*100
-
-## PLOTTING
-plot(conditional_effects(Analysis1aTrial_m2), ask = FALSE)
-
-Preds <- inv_logit_scaled(posterior_linpred(Analysis1aTrial_m2))
-d1$AccuracyP <- Preds[1,]
-d1$Accuracy <- as.numeric(d1$correct)-1
-
-ggplot(d1, aes(trial,AccuracyP,color=condition)) +
-  geom_smooth(method = "scam", 
-        formula = y ~ s(x, k = 5, bs = "mpi"), 
-        se = T) +
-  facet_wrap(.~session) +
-  theme_classic()
-
-ggplot(d1, aes(trial,Accuracy, color = condition)) +
-  geom_smooth(method = "scam", 
-        formula = y ~ s(x, k = 5, bs = "mpi"), 
-        se = T) +
-  stat_smooth(geom='line',aes(group = subject), alpha=0.3, method = "scam", 
-        formula = y ~ s(x, k = 5, bs = "mpi"), 
-        se = F) +
-  facet_wrap(.~session) +
-  theme_classic()
-
-
-### Now only first cycle
-Analysis1aTrial_m3 <- brm(
-  Analysis1aTrial_f2, 
-  subset(d1, cycle==1), 
-  family = bernoulli,
-  prior = Analysis1aTrial_prior2,
-  sample_prior = TRUE,
-  chains = 2,
-  cores = 2,
-  iter = 4000,
-  file = here("models","Analysis1aTrial_m3"),
-  control = list(adapt_delta=0.9, max_treedepth=20)
-  )
-
-Analysis1aTrial_m3  <- add_criterion(Analysis1aTrial_m3, criterion = c("loo", "bayes_R2"))
-
-### Let's check model quality
-summary(Analysis1aTrial_m3)  ## Any warnings?
-LogOddsPreds <- posterior_linpred(Analysis1aTrial_m3)
-rethinking::dens(
-  inv_logit_scaled(LogOddsPreds[1:2000,])
-) # Any obvious bias?
-
-## The markov chains (raw and ranked) have to look like they mixed well (overlapped)
-mcmc_trace(Analysis1aTrial_m3,
-           pars = c("b_conditionIndividuals", "b_conditionDyads",
-                    "bsp_conditionIndividuals:mosession", "bsp_conditionDyads:mosession",
-                    "bsp_conditionIndividuals:motrial", "bsp_conditionDyads:motrial",
-                    "bsp_conditionIndividuals:mosession:motrial", "bsp_conditionDyads:mosession:motrial",
-           "sd_subject__conditionIndividuals", "sd_subject__conditionDyads",
-           "sd_subject__conditionIndividuals:mosession","sd_subject__conditionDyads:mosession",
-           "sd_subject__conditionIndividuals:motrial","sd_subject__conditionDyads:motrial",
-           "sd_subject__conditionIndividuals:mosession:motrial","sd_subject__conditionDyads:mosession:motrial",
-           "sd_stimulus__conditionIndividuals", "sd_stimulus__conditionDyads")) + 
-  theme_classic()
-
-mcmc_rank_overlay(Analysis1aTrial_m3,
-                  pars = c("b_conditionIndividuals", "b_conditionDyads",
-                    "bsp_conditionIndividuals:mosession", "bsp_conditionDyads:mosession",
-                    "bsp_conditionIndividuals:mosession:motrial", "bsp_conditionDyads:mosession:motrial",
-           "sd_subject__conditionIndividuals", "sd_subject__conditionDyads",
-           "sd_subject__conditionIndividuals:mosession","sd_subject__conditionDyads:mosession",
-           "sd_subject__conditionIndividuals:motrial","sd_subject__conditionDyads:motrial",
-           "sd_subject__conditionIndividuals:mosession:motrial","sd_subject__conditionDyads:mosession:motrial",
-           "sd_stimulus__conditionIndividuals", "sd_stimulus__conditionDyads")) + theme_classic()
-
-# The posteriors have to have moved and gotten more confident than the priors
-plot(hypothesis(Analysis1aTrial_m3,"conditionIndividuals > 0"))
-plot(hypothesis(Analysis1aTrial_m3,"conditionDyads > 0"))
-plot(hypothesis(Analysis1aTrial_m3,"conditionIndividuals:mosession > 0", class = "bsp"))
-plot(hypothesis(Analysis1aTrial_m3,"conditionDyads:mosession > 0", class = "bsp"))
-plot(hypothesis(Analysis1aTrial_m3,"conditionIndividuals:motrial > 0", class = "bsp"))
-plot(hypothesis(Analysis1aTrial_m3,"conditionDyads:motrial > 0", class = "bsp"))
-plot(hypothesis(Analysis1aTrial_m3,"conditionIndividuals:mosession:motrial > 0", class="bsp"))
-plot(hypothesis(Analysis1aTrial_m3,"conditionDyads:mosession:motrial > 0", class="bsp"))
-
-plot(hypothesis(Analysis1aTrial_m3,"conditionIndividuals > 0", class="sd", group="subject"))
-plot(hypothesis(Analysis1aTrial_m3,"conditionDyads > 0", class="sd", group="subject"))
-plot(hypothesis(Analysis1aTrial_m3,"conditionIndividuals:mosession > 0", class="sd", group="subject"))
-plot(hypothesis(Analysis1aTrial_m3,"conditionDyads:mosession > 0", class="sd", group="subject"))
-plot(hypothesis(Analysis1aTrial_m3,"conditionIndividuals:motrial > 0", class="sd", group="subject"))
-plot(hypothesis(Analysis1aTrial_m3,"conditionDyads:motrial > 0", class="sd", group="subject"))
-plot(hypothesis(Analysis1aTrial_m3,"conditionIndividuals:mosession:motrial > 0", class="sd", group="subject"))
-plot(hypothesis(Analysis1aTrial_m3,"conditionDyads:mosession:motrial > 0", class="sd", group="subject"))
-plot(hypothesis(Analysis1aTrial_m3,"conditionIndividuals > 0", class="sd", group="stimulus"))
-plot(hypothesis(Analysis1aTrial_m3,"conditionDyads > 0", class="sd", group="stimulus"))
-
-## Hypothesis testing
-
-### Dyads learn quicker than individuals
-### Dyads learning decreases less than individuals
-Post <- posterior_samples(Analysis1aTrial_m3, pars = c(
-  "b_conditionIndividuals", "b_conditionDyads",
-  "bsp_conditionIndividuals:mosession", "bsp_conditionDyads:mosession",
-  "simo_conditionIndividuals:mosession","simo_conditionDyads:mosession",
-  "bsp_conditionIndividuals:motrial", "bsp_conditionDyads:motrial",
-  "simo_conditionIndividuals:motrial","simo_conditionDyads:motrial",
-  "bsp_conditionIndividuals:mosession:motrial", "bsp_conditionDyads:mosession:motrial",
-  "simo_conditionIndividuals:mosession:motrial", "simo_conditionDyads:mosession:motrial")) 
-
-Post <- Post %>% mutate(
-  IndividualFinalS1 = inv_logit_scaled(`b_conditionIndividuals` + 32 * `bsp_conditionIndividuals:motrial`),
-  DyadFinalS1 = inv_logit_scaled(`b_conditionDyads` + 32 * `bsp_conditionDyads:motrial`),
-  IndividualFinalS2 = inv_logit_scaled(`b_conditionIndividuals` + 
-                       2 * `simo_conditionIndividuals:mosession1[1]` *
-                                       `bsp_conditionIndividuals:mosession` + 
-                       32 * 
-                       (`bsp_conditionIndividuals:motrial` + 
-                       `bsp_conditionIndividuals:mosession:motrial`
-                       )),
-  DyadFinalS2 = inv_logit_scaled(`b_conditionDyads` + 
-                       2 * `simo_conditionDyads:mosession1[1]` *
-                                       `bsp_conditionDyads:mosession` + 
-                       32 * 
-                       (`bsp_conditionDyads:motrial` + 
-                       `bsp_conditionDyads:mosession:motrial`
-                       )),
-  IndividualFinalS3 = inv_logit_scaled(`b_conditionIndividuals` + 
-                       3 * `bsp_conditionIndividuals:mosession` + 
-                       32 * 
-                       (`bsp_conditionIndividuals:motrial` + 
-                       `bsp_conditionIndividuals:mosession:motrial`
-                       )),
-  DyadFinalS3 = inv_logit_scaled(`b_conditionDyads` + 
-                       3 * `bsp_conditionDyads:mosession` + 
-                       32 * 
-                       (`bsp_conditionDyads:motrial` + 
-                       `bsp_conditionDyads:mosession:motrial`
-                       )),
-  IndividualLearningS1 = inv_logit_scaled(`b_conditionIndividuals` + 32 * `bsp_conditionIndividuals:motrial`) - inv_logit_scaled(`b_conditionIndividuals`),
-  
-  DyadLearningS1 = inv_logit_scaled(`b_conditionDyads` + 32 * `bsp_conditionDyads:motrial`) - inv_logit_scaled(`b_conditionDyads`),
-  
-  IndividualLearningS2 =  inv_logit_scaled(`b_conditionIndividuals` + 
-                       2 * `simo_conditionIndividuals:mosession1[1]` *
-                                       `bsp_conditionIndividuals:mosession` + 
-                       32 * 
-                       (`bsp_conditionIndividuals:motrial` + 
-                       `bsp_conditionIndividuals:mosession:motrial`
-                       )) - inv_logit_scaled(`b_conditionIndividuals` + 
-                       2 * `simo_conditionIndividuals:mosession1[1]` *
-                                       `bsp_conditionIndividuals:mosession`),
-  
-  DyadLearningS2 =  inv_logit_scaled(`b_conditionDyads` + 
-                       2 * `simo_conditionDyads:mosession1[1]` *
-                                       `bsp_conditionDyads:mosession` + 
-                       32 * 
-                       (`bsp_conditionDyads:motrial` + 
-                       `bsp_conditionDyads:mosession:motrial`
-                       )) - inv_logit_scaled(`b_conditionDyads` + 
-                       2 * `simo_conditionDyads:mosession1[1]` *
-                                       `bsp_conditionDyads:mosession`),
-  
-  IndividualLearningS3 =  inv_logit_scaled(`b_conditionIndividuals` + 
-                       3 * `simo_conditionIndividuals:mosession1[1]` *
-                                       `bsp_conditionIndividuals:mosession` + 
-                       32 * 
-                       (`bsp_conditionIndividuals:motrial` + 
-                       `bsp_conditionIndividuals:mosession:motrial`
-                       )) - inv_logit_scaled(`b_conditionIndividuals` + 
-                       3 * `simo_conditionIndividuals:mosession1[1]` *
-                                       `bsp_conditionIndividuals:mosession`),
-  
-  DyadLearningS3 =  inv_logit_scaled(`b_conditionDyads` + 
-                       3 * `simo_conditionDyads:mosession1[1]` *
-                                       `bsp_conditionDyads:mosession` + 
-                       32 * 
-                       (`bsp_conditionDyads:motrial` + 
-                       `bsp_conditionDyads:mosession:motrial`
-                       )) - inv_logit_scaled(`b_conditionDyads` + 
-                       3 * `simo_conditionDyads:mosession1[1]` *
-                                       `bsp_conditionDyads:mosession`),
-  
-  H1 = (DyadLearningS1 + DyadLearningS2 + DyadLearningS3)/3 - (IndividualLearningS1 + IndividualLearningS2 + IndividualLearningS3)/3, #Dyads learn quicker than individuals
-  H1S1 = DyadLearningS1  - IndividualLearningS1, 
-  H1S2 = DyadLearningS2  - IndividualLearningS2, 
-  H1S3 = DyadLearningS3  - IndividualLearningS3, 
-  H2 = (DyadLearningS1 - DyadLearningS3) - (IndividualLearningS1 - IndividualLearningS3),
-  H3 = ((DyadFinalS1 + DyadFinalS2 + DyadFinalS3)/ 3) - ((IndividualFinalS1 + IndividualFinalS2 + IndividualFinalS3)/ 3),
-  H3S1 = DyadFinalS1  - IndividualFinalS1, 
-  H3S2 = DyadFinalS2  - IndividualFinalS2, 
-  H3S3 = DyadFinalS3  - IndividualFinalS3,
-  H4 = (DyadFinalS3  - IndividualFinalS3) - (DyadFinalS1  - IndividualFinalS1) 
-)
-
-H1_test <- paste0("B = ", round(mean(Post$H1, na.rm = T), 2) * 100, 
-               ", SE = ", round(sd(Post$H1, na.rm = T), 2) * 100, 
-               ", 95% CI's = ", round(quantile(Post$H1, .025)[[1]], 2) * 100, 
-               " ", round(quantile(Post$H1, .975)[[1]],2)  * 100,
-               ", ER = ", round(sum(Post$H1 > 0)/sum(Post$H1 <= 0), 2),
-               ", credibility = ", round(sum(Post$H1 > 0)/nrow(Post), 2) * 100)
-
-H1S1_test <- paste0("B = ", round(mean(Post$H1S1, na.rm = T), 2) * 100, 
-               ", SE = ", round(sd(Post$H1S1, na.rm = T), 2) * 100, 
-               ", 95% CI's = ", round(quantile(Post$H1S1, .025)[[1]], 2) * 100, 
-               " ", round(quantile(Post$H1S1, .975)[[1]],2)  * 100,
-               ", ER = ", round(sum(Post$H1S1 > 0)/sum(Post$H1S1 <= 0), 2),
-               ", credibility = ", round(sum(Post$H1S1 > 0)/nrow(Post), 2) * 100)
-
-H1S2_test <- paste0("B = ", round(mean(Post$H1S2, na.rm = T), 2) * 100, 
-               ", SE = ", round(sd(Post$H1S2, na.rm = T), 2) * 100, 
-               ", 95% CI's = ", round(quantile(Post$H1S2, .025)[[1]], 2) * 100, 
-               " ", round(quantile(Post$H1S2, .975)[[1]],2)  * 100,
-               ", ER = ", round(sum(Post$H1S2 > 0)/sum(Post$H1S2 <= 0), 2),
-               ", credibility = ", round(sum(Post$H1S2 > 0)/nrow(Post), 2) * 100)
-
-H1S3_test <- paste0("B = ", round(mean(Post$H1S3, na.rm = T), 2) * 100, 
-               ", SE = ", round(sd(Post$H1S3, na.rm = T), 2) * 100, 
-               ", 95% CI's = ", round(quantile(Post$H1S3, .025)[[1]], 2) * 100, 
-               " ", round(quantile(Post$H1S3, .975)[[1]],2)  * 100,
-               ", ER = ", round(sum(Post$H1S3 > 0)/sum(Post$H1S3 <= 0), 2),
-               ", credibility = ", round(sum(Post$H1S3 > 0)/nrow(Post), 2) * 100)
-
-H1S3a_test <- paste0("B = ", round(mean(Post$H1S3 - Post$H1S1, na.rm = T), 2) * 100, 
-               ", SE = ", round(sd(Post$H1S3 - Post$H1S1, na.rm = T), 2) * 100, 
-               ", 95% CI's = ", round(quantile(Post$H1S3 - Post$H1S1, .025)[[1]], 2) * 100, 
-               " ", round(quantile(Post$H1S3 - Post$H1S1, .975)[[1]],2)  * 100,
-               ", ER = ", round(sum(Post$H1S3 - Post$H1S1 > 0)/sum(Post$H1S3 - Post$H1S1 <= 0), 2),
-               ", credibility = ", round(sum(Post$H1S3 - Post$H1S1 > 0)/nrow(Post), 2) * 100)
-
-H1S3aa_test <- paste0("B = ", round(mean(Post$DyadLearningS3 - Post$DyadLearningS1, na.rm = T), 2) * 100, 
-               ", SE = ", round(sd(Post$DyadLearningS3 - Post$DyadLearningS1, na.rm = T), 2) * 100, 
-               ", 95% CI's = ", round(quantile(Post$DyadLearningS3 - Post$DyadLearningS1, .025)[[1]], 2) * 100, 
-               " ", round(quantile(Post$DyadLearningS3 - Post$DyadLearningS1, .975)[[1]],2)  * 100,
-               ", ER = ", round(sum(Post$DyadLearningS3 - Post$DyadLearningS1 > 0)/sum(Post$DyadLearningS3 - Post$DyadLearningS1 <= 0), 2),
-               ", credibility = ", round(sum(Post$DyadLearningS3 - Post$DyadLearningS1 > 0)/nrow(Post), 2) * 100)
-
-H2_test <- paste0("B = ", round(mean(Post$H2, na.rm = T), 2) * 100, 
-               ", SE = ", round(sd(Post$H2, na.rm = T), 2) * 100, 
-               ", 95% CI's = ", round(quantile(Post$H2, .025)[[1]], 2) * 100, 
-               " ", round(quantile(Post$H2, .975)[[1]],2)  * 100,
-               ", ER = ", round(sum(Post$H2 > 0)/sum(Post$H1 <= 0), 2),
-               ", credibility = ", round(sum(Post$H2 > 0)/nrow(Post), 2) * 100)
-
-H3_test <- paste0("B = ", round(mean(Post$H3, na.rm = T), 2) * 100, 
-               ", SE = ", round(sd(Post$H3, na.rm = T), 2) * 100, 
-               ", 95% CI's = ", round(quantile(Post$H3, .025)[[1]], 2) * 100, 
-               " ", round(quantile(Post$H3, .975)[[1]],2)  * 100,
-               ", ER = ", round(sum(Post$H3 > 0)/sum(Post$H3 <= 0), 2),
-               ", credibility = ", round(sum(Post$H3 > 0)/nrow(Post), 2) * 100)
-
-H3S1_test <- paste0("B = ", round(mean(Post$H3S1, na.rm = T), 2) * 100, 
-               ", SE = ", round(sd(Post$H3S1, na.rm = T), 2) * 100, 
-               ", 95% CI's = ", round(quantile(Post$H3S1, .025)[[1]], 2) * 100, 
-               " ", round(quantile(Post$H3S1, .975)[[1]],2)  * 100,
-               ", ER = ", round(sum(Post$H3S1 > 0)/sum(Post$H3S1 <= 0), 2),
-               ", credibility = ", round(sum(Post$H3S1 > 0)/nrow(Post), 2) * 100)
-
-H3S2_test <- paste0("B = ", round(mean(Post$H3S2, na.rm = T), 2) * 100, 
-               ", SE = ", round(sd(Post$H3S2, na.rm = T), 2) * 100, 
-               ", 95% CI's = ", round(quantile(Post$H3S2, .025)[[1]], 2) * 100, 
-               " ", round(quantile(Post$H3S2, .975)[[1]],2)  * 100,
-               ", ER = ", round(sum(Post$H3S2 > 0)/sum(Post$H3S2 <= 0), 2),
-               ", credibility = ", round(sum(Post$H3S2 > 0)/nrow(Post), 2) * 100)
-
-H3S3_test <- paste0("B = ", round(mean(Post$H3S3, na.rm = T), 2) * 100, 
-               ", SE = ", round(sd(Post$H3S3, na.rm = T), 2) * 100, 
-               ", 95% CI's = ", round(quantile(Post$H3S3, .025)[[1]], 2) * 100, 
-               " ", round(quantile(Post$H3S3, .975)[[1]],2)  * 100,
-               ", ER = ", round(sum(Post$H3S3 > 0)/sum(Post$H3S3 <= 0), 2),
-               ", credibility = ", round(sum(Post$H3S3 > 0)/nrow(Post), 2) * 100)
-
-H4_test <- paste0("B = ", round(mean(Post$H4, na.rm = T), 2) * 100, 
-               ", SE = ", round(sd(Post$H4, na.rm = T), 2) * 100, 
-               ", 95% CI's = ", round(quantile(Post$H4, .025)[[1]], 2) * 100, 
-               " ", round(quantile(Post$H4, .975)[[1]],2)  * 100,
-               ", ER = ", round(sum(Post$H4 > 0)/sum(Post$H4 <= 0), 2),
-               ", credibility = ", round(sum(Post$H4 > 0)/nrow(Post), 2) * 100)
-
-round(mean((Post$DyadLearningS1 + Post$DyadLearningS2 + Post$DyadLearningS3)/3),2)*100
-round(sd((Post$DyadLearningS1 + Post$DyadLearningS2 + Post$DyadLearningS3)/3),2)*100
-round(quantile((Post$DyadLearningS1 + Post$DyadLearningS2 + Post$DyadLearningS3)/3, c(.025, 0.975)),2)*100
-round(mean((Post$IndividualLearningS1 + Post$IndividualLearningS2 + Post$IndividualLearningS3)/3),2)*100
-round(sd((Post$IndividualLearningS1 + Post$IndividualLearningS2 + Post$IndividualLearningS3)/3),2)*100
-round(quantile((Post$IndividualLearningS1 + Post$IndividualLearningS2 + Post$IndividualLearningS3)/3, c(.025, 0.975)),2)*100
-
-round(mean((Post$DyadFinalS1 + Post$DyadFinalS2 + Post$DyadFinalS3)/3),2)*100
-round(sd((Post$DyadFinalS1 + Post$DyadFinalS2 + Post$DyadFinalS3)/3),2)*100
-round(quantile((Post$DyadFinalS1 + Post$DyadFinalS2 + Post$DyadFinalS3)/3, c(.025, 0.975)),2)*100
-round(mean((Post$IndividualFinalS1 + Post$IndividualFinalS2 + Post$IndividualFinalS3)/3),2)*100
-round(sd((Post$IndividualFinalS1 + Post$IndividualFinalS2 + Post$IndividualFinalS3)/3),2)*100
-round(quantile((Post$IndividualFinalS1 + Post$IndividualFinalS2 + Post$IndividualFinalS3)/3, c(.025, 0.975)),2)*100
-
-round(mean((Post$DyadFinalS1)),2)*100
-round(sd((Post$DyadFinalS1)),2)*100
-round(quantile((Post$DyadFinalS1), c(.025, 0.975)),2)*100
-
-round(mean((Post$DyadFinalS1 )),2)*100
-round(sd((Post$DyadFinalS1 )),2)*100
-round(quantile((Post$DyadFinalS1), c(.025, 0.975)),2)*100
-round(mean((Post$DyadFinalS2 )),2)*100
-round(sd((Post$DyadFinalS2 )),2)*100
-round(quantile((Post$DyadFinalS2), c(.025, 0.975)),2)*100
-round(mean((Post$DyadFinalS3 )),2)*100
-round(sd((Post$DyadFinalS3 )),2)*100
-round(quantile((Post$DyadFinalS3), c(.025, 0.975)),2)*100
-
-round(mean((Post$IndividualFinalS1 )),2)*100
-round(sd((Post$IndividualFinalS1 )),2)*100
-round(quantile((Post$IndividualFinalS1), c(.025, 0.975)),2)*100
-round(mean((Post$IndividualFinalS2 )),2)*100
-round(sd((Post$IndividualFinalS2 )),2)*100
-round(quantile((Post$IndividualFinalS2), c(.025, 0.975)),2)*100
-round(mean((Post$IndividualFinalS3 )),2)*100
-round(sd((Post$IndividualFinalS3 )),2)*100
-round(quantile((Post$IndividualFinalS3), c(.025, 0.975)),2)*100
-
-round(mean((Post$DyadFinalS1 - Post$DyadFinalS3)),2)*100
-round(sd((Post$DyadFinalS1 - Post$DyadFinalS3)),2)*100
-round(quantile((Post$DyadFinalS1 - Post$DyadFinalS3), c(.025, 0.975)),2)*100
-
-round(mean((Post$IndividualFinalS1 - Post$IndividualFinalS3)),2)*100
-round(sd((Post$IndividualFinalS1 - Post$IndividualFinalS3)),2)*100
-round(quantile((Post$IndividualFinalS1 - Post$IndividualFinalS3), c(.025, 0.975)),2)*100
-
-## PLOTTING
-plot(conditional_effects(Analysis1aTrial_m3), ask = FALSE)
-
-Preds <- inv_logit_scaled(posterior_linpred(Analysis1aTrial_m3))
-d1a <- subset(d1, cycle==1)
-d1a$AccuracyP <- Preds[1,]
-d1a$Accuracy <- as.numeric(d1a$correct)-1
-
-ggplot(d1a, aes(trial,AccuracyP,color=condition)) +
-  geom_smooth(method = "scam", 
-        formula = y ~ s(x, k = 5, bs = "mpi"), 
-        se = T) +
-  facet_wrap(.~session) +
-  theme_classic()
-
-ggplot(d1a, aes(trial,Accuracy, color = condition)) +
-  geom_smooth(method = "scam", 
-        formula = y ~ s(x, k = 5, bs = "mpi"), 
-        se = T) +
-  stat_smooth(geom='line',aes(group = subject), alpha=0.3, method = "scam", 
-        formula = y ~ s(x, k = 5, bs = "mpi"), 
-        se = F) +
-  facet_wrap(.~session) +
-  theme_classic()
 ```
 
 
 
-### Analysis 1b - Test Performance (correctness) as a function of condition (individual vs dyad) and complexity (session)
+### Hypothesis 2a - Test Performance (correctness) as a function of condition (individual vs dyad) and complexity (session)
 
 
 ```{r Test, echo=F, warning=F, message=F}
+
 d2 <- subset(d, test == 1)
 
-Analysis1b_f <- bf(
+H2a_f <- bf(
   correct ~ 0 + condition + condition:mo(session) + 
     (0 + condition + condition:mo(session) | subject) + 
     (0 + condition  | stimulus)
 )
 
-get_prior(Analysis1b_f, d2, family = bernoulli)
+get_prior(H2a_f, d2, family = bernoulli)
 
 
-Analysis1b_prior <- c(
+H2a_prior <- c(
   prior(normal(0, 1), class = b),
   prior(normal(0,.5), class = b, coef = "conditionDyads:mosession"),
   prior(normal(0,.5), class = b, coef = "conditionIndividuals:mosession"),
@@ -990,46 +298,46 @@ Analysis1b_prior <- c(
   prior(normal(0, 1), class = sd)
 )
 
-Analysis1b_m_prior <- brm(
-  Analysis1b_f, 
+H2a_m_prior <- brm(
+  H2a_f, 
   d2, 
   family = bernoulli,
-  prior = Analysis1b_prior,
+  prior = H2a_prior,
   sample_prior = "only",
   chains = 2,
   cores = 2,
-  file = here("models","Analysis1b_m_prior"),
+  file = here("models","H2a_m_prior"),
   control = list(adapt_delta=0.9, max_treedepth=20)
   )
 
 ## Checking prior predictions. Looks good
-LogOddsPreds <- posterior_linpred(Analysis1b_m_prior)
+LogOddsPreds <- posterior_linpred(H2a_m_prior)
 rethinking::dens(
   inv_logit_scaled(LogOddsPreds[1:2000,])
 )
 
-Analysis1b_m <- brm(
-  Analysis1b_f, 
+H2a_m <- brm(
+  H2a_f, 
   d2, 
   family = bernoulli,
-  prior = Analysis1b_prior,
+  prior = H2_prior,
   sample_prior = TRUE,
   chains = 2,
   cores = 2,
   iter = 4000,
-  file = here("models","Analysis1b_m"),
+  file = here("models","H2a_m"),
   control = list(adapt_delta=0.9, max_treedepth=20)
   )
 
 ### Let's check model quality
-summary(Analysis1b_m)  ## Any warnings?
-LogOddsPreds <- posterior_linpred(Analysis1b_m)
+summary(H2a_m)  ## Any warnings?
+LogOddsPreds <- posterior_linpred(H2a_m)
 rethinking::dens(
   inv_logit_scaled(LogOddsPreds[1:2000,])
 ) # Any obvious bias?
 
 ## The markov chains (raw and ranked) have to look like they mixed well (overlapped)
-mcmc_trace(Analysis1b_m,
+mcmc_trace(H2a_m,
            pars = c("b_conditionIndividuals", "b_conditionDyads",
                     "bsp_conditionIndividuals:mosession", "bsp_conditionDyads:mosession",
            "sd_subject__conditionIndividuals", "sd_subject__conditionDyads",
@@ -1037,7 +345,7 @@ mcmc_trace(Analysis1b_m,
            "sd_stimulus__conditionIndividuals", "sd_stimulus__conditionDyads")) + 
   theme_classic()
 
-mcmc_rank_overlay(Analysis1b_m,
+mcmc_rank_overlay(H2a_m,
                   pars = c("b_conditionIndividuals", "b_conditionDyads",
                     "bsp_conditionIndividuals:mosession", "bsp_conditionDyads:mosession",
            "sd_subject__conditionIndividuals", "sd_subject__conditionDyads",
@@ -1045,20 +353,20 @@ mcmc_rank_overlay(Analysis1b_m,
            "sd_stimulus__conditionIndividuals", "sd_stimulus__conditionDyads")) + theme_classic()
 
 # The posteriors have to have moved and gotten more confident than the priors
-plot(hypothesis(Analysis1b_m,"conditionIndividuals > 0"))
-plot(hypothesis(Analysis1b_m,"conditionDyads > 0"))
-plot(hypothesis(Analysis1b_m,"conditionIndividuals > 0", class="sd", group="subject"))
-plot(hypothesis(Analysis1b_m,"conditionDyads > 0", class="sd", group="subject"))
-plot(hypothesis(Analysis1b_m,"conditionIndividuals > 0", class="sd", group="stimulus"))
-plot(hypothesis(Analysis1b_m,"conditionDyads > 0", class="sd", group="stimulus"))
-plot(hypothesis(Analysis1b_m,"conditionIndividuals:mosession > 0", class="bsp"))
-plot(hypothesis(Analysis1b_m,"conditionDyads:mosession > 0", class="bsp"))
-plot(hypothesis(Analysis1b_m,"conditionDyads:mosession > conditionIndividuals:mosession", class="bsp"))
-plot(hypothesis(Analysis1b_m,"conditionIndividuals:mosession > 0", class="sd", group="subject"))
-plot(hypothesis(Analysis1b_m,"conditionDyads:mosession > 0", class="sd", group="subject"))
+plot(hypothesis(H2a_m,"conditionIndividuals > 0"))
+plot(hypothesis(H2a_m,"conditionDyads > 0"))
+plot(hypothesis(H2a_m,"conditionIndividuals > 0", class="sd", group="subject"))
+plot(hypothesis(H2a_m,"conditionDyads > 0", class="sd", group="subject"))
+plot(hypothesis(H2a_m,"conditionIndividuals > 0", class="sd", group="stimulus"))
+plot(hypothesis(H2a_m,"conditionDyads > 0", class="sd", group="stimulus"))
+plot(hypothesis(H2a_m,"conditionIndividuals:mosession > 0", class="bsp"))
+plot(hypothesis(H2a_m,"conditionDyads:mosession > 0", class="bsp"))
+plot(hypothesis(H2a_m,"conditionDyads:mosession > conditionIndividuals:mosession", class="bsp"))
+plot(hypothesis(H2a_m,"conditionIndividuals:mosession > 0", class="sd", group="subject"))
+plot(hypothesis(H2a_m,"conditionDyads:mosession > 0", class="sd", group="subject"))
 
 ## Hypothesis testing
-Post <- posterior_samples(Analysis1b_m, pars = c(
+Post <- posterior_samples(H2a_m, pars = c(
   "b_conditionIndividuals", "b_conditionDyads",
   "bsp_conditionIndividuals:mosession", "bsp_conditionDyads:mosession",
   "simo_conditionIndividuals:mosession1","simo_conditionDyads:mosession1")) %>%
@@ -1136,13 +444,13 @@ round(sd(Post$IndividualsS3),2)*100
 round(quantile(Post$IndividualsS3, c(.025, 0.975)),2)*100
 
 ## Plotting
-plot(conditional_effects(Analysis1a_m), plot = FALSE)[[3]] + 
+plot(conditional_effects(H2_m), plot = FALSE)[[3]] + 
   scale_x_continuous(breaks=c(1, 2, 3)) + 
   #ylim(.25, 1) +
   theme_classic()
 
-d1$Accuracy <- as.numeric(d1$correct)-1
-dd <- d1 %>% mutate(correct = as.numeric(correct)-1) %>%
+d2$Accuracy <- as.numeric(d2$correct)-1
+dd <- d2 %>% mutate(correct = as.numeric(correct)-1) %>%
   group_by(subject, condition, session) %>%
   summarize(Accuracy = mean(correct, na.rm=T))
 
@@ -1154,7 +462,7 @@ ggplot(dd, aes(session, Accuracy, color = condition)) +
   scale_x_continuous(breaks=c(1, 2, 3)) + 
   theme_classic()
 
-ggplot(d1, aes(session, Accuracy, color = condition)) +
+ggplot(d2, aes(session, Accuracy, color = condition)) +
   geom_smooth(method = "scam", 
         formula = y ~ s(x, k = 4, bs = "mpd"), 
         se = T) +
@@ -1166,14 +474,14 @@ ggplot(d1, aes(session, Accuracy, color = condition)) +
 
 
 ## Performance at session 1 is best for dyads
-hypothesis(Analysis1b_m,"conditionDyads > conditionIndividuals", class="b")
+hypothesis(H2a_m,"conditionDyads > conditionIndividuals", class="b")
 ## Decrease in performance by session is smaller for dyads
-hypothesis(Analysis1b_m,"conditionDyads:mosession > conditionIndividuals:mosession", class="bsp")
-hypothesis(Analysis1b_m,"conditionDyads:mosession < 0", class="bsp")
-hypothesis(Analysis1b_m,"conditionIndividuals:mosession < 0", class="bsp")
+hypothesis(H2a_m,"conditionDyads:mosession > conditionIndividuals:mosession", class="bsp")
+hypothesis(H2a_m,"conditionDyads:mosession < 0", class="bsp")
+hypothesis(H2a_m,"conditionIndividuals:mosession < 0", class="bsp")
 
 ## Plotting
-plot(conditional_effects(Analysis1b_m), plot = FALSE)[[3]] + theme_classic()
+plot(conditional_effects(H2a_m), plot = FALSE)[[3]] + theme_classic()
 d2$Accuracy <- as.numeric(d2$correct)-1
 ggplot(d2, aes(session,Accuracy, color = condition)) +
   geom_smooth(method = "scam", 
@@ -1183,179 +491,36 @@ ggplot(d2, aes(session,Accuracy, color = condition)) +
         formula = y ~ s(x, k = 5, bs = "mpd"), 
         se = F) +
   theme_classic()
-## Now looking in details at the learning within trial
+```
 
-### First by making session into a factor (monotonic interactions are a bit trickier, so we build them only after this)
-d2 <- d2 %>% mutate(
-  sessionF = as.factor(session)
-)
+## H2b 
 
-
-Analysis1bTrial_f <- bf(
-  correct ~ 0 + condition:sessionF + condition:sessionF:mo(trial) + 
-    (0 + condition:sessionF + condition:sessionF:mo(trial) | subject) + 
-    (0 + condition | stimulus)
-  )
-
-get_prior(Analysis1bTrial_f, d2)
-
-Analysis1bTrial_prior <- c(
-  prior(normal(0, 1), class = b),
-  prior(normal(0, .3), class = b, coef = "conditionIndividuals:sessionF1:motrial"),
-  prior(normal(0, .3), class = b, coef = "conditionIndividuals:sessionF2:motrial"),
-  prior(normal(0, .3), class = b, coef = "conditionIndividuals:sessionF3:motrial"),
-  prior(normal(0, .3), class = b, coef = "conditionDyads:sessionF1:motrial"),
-  prior(normal(0, .3), class = b, coef = "conditionDyads:sessionF2:motrial"),
-  prior(normal(0, .3), class = b, coef = "conditionDyads:sessionF3:motrial"),
-  prior(lkj(5), class = cor),
-  prior(normal(0, 1), class = sd),
-  prior(normal(0, .3), class = sd, coef = "conditionIndividuals:sessionF1:motrial", group = "subject"),
-  prior(normal(0, .3), class = sd, coef = "conditionIndividuals:sessionF2:motrial", group = "subject"),
-  prior(normal(0, .3), class = sd, coef = "conditionIndividuals:sessionF3:motrial", group = "subject"),
-  prior(normal(0, .3), class = sd, coef = "conditionDyads:sessionF1:motrial", group = "subject"),
-  prior(normal(0, .3), class = sd, coef = "conditionDyads:sessionF2:motrial", group = "subject"),
-  prior(normal(0, .3), class = sd, coef = "conditionDyads:sessionF3:motrial", group = "subject")
-)
-
-Analysis1bTrial_m <- brm(
-  Analysis1bTrial_f, 
-  d2, 
+```{r}
+### Now only first cycle
+H2b_m <- brm(
+  H2b_f, 
+  subset(d1, cycle==1), 
   family = bernoulli,
-  prior = Analysis1bTrial_prior,
+  prior = H2b_prior,
   sample_prior = TRUE,
   chains = 2,
   cores = 2,
   iter = 4000,
-  file = here("models","Analysis1bTrial_m1"),
+  file = here("models","H2b_m"),
   control = list(adapt_delta=0.9, max_treedepth=20)
   )
-Analysis1bTrial_m  <- add_criterion(Analysis1bTrial_m, criterion = c("loo", "bayes_R2"))
+
+H2b_m  <- add_criterion(H2b_m, criterion = c("loo", "bayes_R2"))
 
 ### Let's check model quality
-summary(Analysis1bTrial_m)  ## Any warnings?
-LogOddsPreds <- posterior_linpred(Analysis1bTrial_m)
+summary(H2b_m)  ## Any warnings?
+LogOddsPreds <- posterior_linpred(H2b_m)
 rethinking::dens(
   inv_logit_scaled(LogOddsPreds[1:2000,])
 ) # Any obvious bias?
 
 ## The markov chains (raw and ranked) have to look like they mixed well (overlapped)
-mcmc_trace(Analysis1bTrial_m,
-           pars = c("b_conditionIndividuals:sessionF1", "b_conditionDyads:sessionF1",
-                    "b_conditionIndividuals:sessionF2", "b_conditionDyads:sessionF2",
-                    "b_conditionIndividuals:sessionF3", "b_conditionDyads:sessionF3",
-                    "bsp_conditionIndividuals:sessionF1:motrial", "bsp_conditionDyads:sessionF1:motrial",
-                    "bsp_conditionIndividuals:sessionF2:motrial", "bsp_conditionDyads:sessionF2:motrial",
-                    "bsp_conditionIndividuals:sessionF3:motrial", "bsp_conditionDyads:sessionF3:motrial",
-           "sd_subject__conditionIndividuals:sessionF1", "sd_subject__conditionDyads:sessionF1",
-           "sd_subject__conditionIndividuals:sessionF2","sd_subject__conditionDyads:sessionF2",
-           "sd_subject__conditionIndividuals:sessionF3","sd_subject__conditionDyads:sessionF3",
-           "sd_subject__conditionIndividuals:sessionF1:motrial", "sd_subject__conditionDyads:sessionF1:motrial",
-           "sd_subject__conditionIndividuals:sessionF2:motrial", "sd_subject__conditionDyads:sessionF2:motrial",
-           "sd_subject__conditionIndividuals:sessionF3:motrial", "sd_subject__conditionDyads:sessionF3:motrial",
-           "sd_stimulus__conditionIndividuals", "sd_stimulus__conditionDyads")) + 
-  theme_classic()
-
-mcmc_rank_overlay(Analysis1bTrial_m,
-                  pars = c("b_conditionIndividuals:sessionF1", "b_conditionDyads:sessionF1",
-                    "b_conditionIndividuals:sessionF2", "b_conditionDyads:sessionF2",
-                    "b_conditionIndividuals:sessionF3", "b_conditionDyads:sessionF3",
-                    "bsp_conditionIndividuals:sessionF1:motrial", "bsp_conditionDyads:sessionF1:motrial",
-                    "bsp_conditionIndividuals:sessionF2:motrial", "bsp_conditionDyads:sessionF2:motrial",
-                    "bsp_conditionIndividuals:sessionF3:motrial", "bsp_conditionDyads:sessionF3:motrial",
-           "sd_subject__conditionIndividuals:sessionF1", "sd_subject__conditionDyads:sessionF1",
-           "sd_subject__conditionIndividuals:sessionF2","sd_subject__conditionDyads:sessionF2",
-           "sd_subject__conditionIndividuals:sessionF3","sd_subject__conditionDyads:sessionF3",
-           "sd_subject__conditionIndividuals:sessionF1:motrial", "sd_subject__conditionDyads:sessionF1:motrial",
-           "sd_subject__conditionIndividuals:sessionF2:motrial", "sd_subject__conditionDyads:sessionF2:motrial",
-           "sd_subject__conditionIndividuals:sessionF3:motrial", "sd_subject__conditionDyads:sessionF3:motrial",
-           "sd_stimulus__conditionIndividuals", "sd_stimulus__conditionDyads")) + theme_classic()
-
-# The posteriors have to have moved and gotten more confident than the priors
-plot(hypothesis(Analysis1bTrial_m,"conditionIndividuals:sessionF1 > 0"))
-plot(hypothesis(Analysis1bTrial_m,"conditionIndividuals:sessionF2 > 0"))
-plot(hypothesis(Analysis1bTrial_m,"conditionIndividuals:sessionF3 > 0"))
-plot(hypothesis(Analysis1bTrial_m,"conditionDyads:sessionF1 > 0"))
-plot(hypothesis(Analysis1bTrial_m,"conditionDyads:sessionF2 > 0"))
-plot(hypothesis(Analysis1bTrial_m,"conditionDyads:sessionF3 > 0"))
-plot(hypothesis(Analysis1bTrial_m,"conditionIndividuals:sessionF1 > 0", class="sd", group="subject"))
-plot(hypothesis(Analysis1bTrial_m,"conditionIndividuals:sessionF2 > 0", class="sd", group="subject"))
-plot(hypothesis(Analysis1bTrial_m,"conditionIndividuals:sessionF3 > 0", class="sd", group="subject"))
-plot(hypothesis(Analysis1bTrial_m,"conditionDyads:sessionF1 > 0", class="sd", group="subject"))
-plot(hypothesis(Analysis1bTrial_m,"conditionDyads:sessionF2 > 0", class="sd", group="subject"))
-plot(hypothesis(Analysis1bTrial_m,"conditionDyads:sessionF3 > 0", class="sd", group="subject"))
-plot(hypothesis(Analysis1bTrial_m,"conditionIndividuals > 0", class="sd", group="stimulus"))
-plot(hypothesis(Analysis1bTrial_m,"conditionDyads > 0", class="sd", group="stimulus"))
-plot(hypothesis(Analysis1bTrial_m,"conditionIndividuals:sessionF1:motrial > 0", class="bsp"))
-plot(hypothesis(Analysis1bTrial_m,"conditionIndividuals:sessionF2:motrial > 0", class="bsp"))
-plot(hypothesis(Analysis1bTrial_m,"conditionIndividuals:sessionF3:motrial > 0", class="bsp"))
-plot(hypothesis(Analysis1bTrial_m,"conditionDyads:sessionF1:motrial > 0", class="bsp"))
-plot(hypothesis(Analysis1bTrial_m,"conditionDyads:sessionF2:motrial > 0", class="bsp"))
-plot(hypothesis(Analysis1bTrial_m,"conditionDyads:sessionF3:motrial > 0", class="bsp"))
-plot(hypothesis(Analysis1bTrial_m,"conditionIndividuals:sessionF1:motrial > 0", class="sd", group="subject"))
-plot(hypothesis(Analysis1bTrial_m,"conditionIndividuals:sessionF2:motrial > 0", class="sd", group="subject"))
-plot(hypothesis(Analysis1bTrial_m,"conditionIndividuals:sessionF3:motrial > 0", class="sd", group="subject"))
-plot(hypothesis(Analysis1bTrial_m,"conditionDyads:sessionF1:motrial > 0", class="sd", group="subject"))
-plot(hypothesis(Analysis1bTrial_m,"conditionDyads:sessionF2:motrial > 0", class="sd", group="subject"))
-plot(hypothesis(Analysis1bTrial_m,"conditionDyads:sessionF3:motrial > 0", class="sd", group="subject"))
-
-## Hypothesis testing
-### Dyads decrease performance less than individuals (F2 - F1)
-hypothesis(Analysis1bTrial_m,"(conditionIndividuals:sessionF1:motrial - conditionIndividuals:sessionF2:motrial) < (conditionDyads:sessionF1:motrial - conditionDyads:sessionF2:motrial)", class="bsp")
-### Dyads decrease performance less than individuals (F3 - F2)
-hypothesis(Analysis1bTrial_m,"(conditionIndividuals:sessionF2:motrial - conditionIndividuals:sessionF3:motrial) > (conditionDyads:sessionF2:motrial - conditionDyads:sessionF3:motrial)", class="bsp")
-
-## Plotting
-## MISSING SO FAR
-conditional_effects(Analysis1bTrial_m)
-
-## Now fully modeling that sessions are in order of complexity
-
-Analysis1bTrial_f2 <- bf(
-  correct ~ 0 + condition + condition:mo(session) + condition:mo(trial) + condition:mo(trial):mo(session) + 
-    (0 + condition + condition:mo(session) + condition:mo(trial) + condition:mo(trial):mo(session) | subject) + 
-    (0 + condition | stimulus)
-  )
-
-get_prior(Analysis1bTrial_f2, d2)
-
-Analysis1bTrial_prior <- c(
-  prior(normal(0, 1), class = b),
-  prior(normal(0, .3), class = b, coef = "conditionIndividuals:motrial"),
-  prior(normal(0, .3), class = b, coef = "conditionDyads:motrial"),
-  prior(normal(0, .3), class = b, coef = "conditionIndividuals:mosession:motrial"),
-  prior(normal(0, .3), class = b, coef = "conditionDyads:mosession:motrial"),
-  prior(lkj(5), class = cor),
-  prior(normal(0, 1), class = sd),
-  prior(normal(0, .3), class = sd, coef = "conditionIndividuals:motrial", group = "subject"),
-  prior(normal(0, .3), class = sd, coef = "conditionDyads:motrial", group = "subject"),
-  prior(normal(0, .3), class = sd, coef = "conditionIndividuals:mosession:motrial", group = "subject"),
-  prior(normal(0, .3), class = sd, coef = "conditionDyads:mosession:motrial", group = "subject")
-)
-
-Analysis1bTrial_m2 <- brm(
-  Analysis1bTrial_f2, 
-  d2, 
-  family = bernoulli,
-  prior = Analysis1bTrial_prior,
-  sample_prior = TRUE,
-  chains = 2,
-  cores = 2,
-  iter = 4000,
-  file = here("models","Analysis1bTrial_m2"),
-  control = list(adapt_delta=0.9, max_treedepth=20)
-  )
-
-Analysis1bTrial_m2  <- add_criterion(Analysis1bTrial_m2, criterion = c("loo", "bayes_R2"))
-
-### Let's check model quality
-summary(Analysis1bTrial_m2)  ## Any warnings?
-LogOddsPreds <- posterior_linpred(Analysis1bTrial_m2)
-rethinking::dens(
-  inv_logit_scaled(LogOddsPreds[1:4000,])
-) # Any obvious bias?
-
-## The markov chains (raw and ranked) have to look like they mixed well (overlapped)
-mcmc_trace(Analysis1bTrial_m2,
+mcmc_trace(H2b_m,
            pars = c("b_conditionIndividuals", "b_conditionDyads",
                     "bsp_conditionIndividuals:mosession", "bsp_conditionDyads:mosession",
                     "bsp_conditionIndividuals:motrial", "bsp_conditionDyads:motrial",
@@ -1367,118 +532,279 @@ mcmc_trace(Analysis1bTrial_m2,
            "sd_stimulus__conditionIndividuals", "sd_stimulus__conditionDyads")) + 
   theme_classic()
 
-mcmc_rank_overlay(Analysis1bTrial_m2,
+mcmc_rank_overlay(H2b_m,
                   pars = c("b_conditionIndividuals", "b_conditionDyads",
                     "bsp_conditionIndividuals:mosession", "bsp_conditionDyads:mosession",
                     "bsp_conditionIndividuals:mosession:motrial", "bsp_conditionDyads:mosession:motrial",
            "sd_subject__conditionIndividuals", "sd_subject__conditionDyads",
            "sd_subject__conditionIndividuals:mosession","sd_subject__conditionDyads:mosession",
+           "sd_subject__conditionIndividuals:motrial","sd_subject__conditionDyads:motrial",
            "sd_subject__conditionIndividuals:mosession:motrial","sd_subject__conditionDyads:mosession:motrial",
-           "sd_stimulus__conditionIndividuals", "sd_stimulus__conditionDyads",
-           "sd_stimulus__conditionIndividuals:mosession", "sd_stimulus__conditionDyads:mosession")) + theme_classic()
+           "sd_stimulus__conditionIndividuals", "sd_stimulus__conditionDyads")) + theme_classic()
 
 # The posteriors have to have moved and gotten more confident than the priors
-plot(hypothesis(Analysis1bTrial_m2,"conditionIndividuals > 0"))
-plot(hypothesis(Analysis1bTrial_m2,"conditionDyads > 0"))
-plot(hypothesis(Analysis1bTrial_m2,"conditionIndividuals:mosession > 0", class = "bsp"))
-plot(hypothesis(Analysis1bTrial_m2,"conditionDyads:mosession > 0", class = "bsp"))
-plot(hypothesis(Analysis1bTrial_m2,"conditionIndividuals:motrial > 0", class = "bsp"))
-plot(hypothesis(Analysis1bTrial_m2,"conditionDyads:motrial > 0", class = "bsp"))
-plot(hypothesis(Analysis1bTrial_m2,"conditionIndividuals:mosession:motrial > 0", class="bsp"))
-plot(hypothesis(Analysis1bTrial_m2,"conditionDyads:mosession:motrial > 0", class="bsp"))
+plot(hypothesis(H2b_m,"conditionIndividuals > 0"))
+plot(hypothesis(H2b_m,"conditionDyads > 0"))
+plot(hypothesis(H2b_m,"conditionIndividuals:mosession > 0", class = "bsp"))
+plot(hypothesis(H2b_m,"conditionDyads:mosession > 0", class = "bsp"))
+plot(hypothesis(H2b_m,"conditionIndividuals:motrial > 0", class = "bsp"))
+plot(hypothesis(H2b_m,"conditionDyads:motrial > 0", class = "bsp"))
+plot(hypothesis(H2b_m,"conditionIndividuals:mosession:motrial > 0", class="bsp"))
+plot(hypothesis(H2b_m,"conditionDyads:mosession:motrial > 0", class="bsp"))
 
-plot(hypothesis(Analysis1bTrial_m2,"conditionIndividuals > 0", class="sd", group="subject"))
-plot(hypothesis(Analysis1bTrial_m2,"conditionDyads > 0", class="sd", group="subject"))
-plot(hypothesis(Analysis1bTrial_m2,"conditionIndividuals:mosession > 0", class="sd", group="subject"))
-plot(hypothesis(Analysis1bTrial_m2,"conditionDyads:mosession > 0", class="sd", group="subject"))
-plot(hypothesis(Analysis1bTrial_m2,"conditionIndividuals:motrial > 0", class="sd", group="subject"))
-plot(hypothesis(Analysis1bTrial_m2,"conditionDyads:motrial > 0", class="sd", group="subject"))
-plot(hypothesis(Analysis1bTrial_m2,"conditionIndividuals:mosession:motrial > 0", class="sd", group="subject"))
-plot(hypothesis(Analysis1bTrial_m2,"conditionDyads:mosession:motrial > 0", class="sd", group="subject"))
-plot(hypothesis(Analysis1bTrial_m2,"conditionIndividuals > 0", class="sd", group="stimulus"))
-plot(hypothesis(Analysis1bTrial_m2,"conditionDyads > 0", class="sd", group="stimulus"))
-plot(hypothesis(Analysis1bTrial_m2,"conditionIndividuals:mosession > 0", class="sd", group="stimulus"))
-plot(hypothesis(Analysis1bTrial_m2,"conditionDyads:mosession > 0", class="sd", group="stimulus"))
+plot(hypothesis(H2b_m,"conditionIndividuals > 0", class="sd", group="subject"))
+plot(hypothesis(H2b_m,"conditionDyads > 0", class="sd", group="subject"))
+plot(hypothesis(H2b_m,"conditionIndividuals:mosession > 0", class="sd", group="subject"))
+plot(hypothesis(H2b_m,"conditionDyads:mosession > 0", class="sd", group="subject"))
+plot(hypothesis(H2b_m,"conditionIndividuals:motrial > 0", class="sd", group="subject"))
+plot(hypothesis(H2b_m,"conditionDyads:motrial > 0", class="sd", group="subject"))
+plot(hypothesis(H2b_m,"conditionIndividuals:mosession:motrial > 0", class="sd", group="subject"))
+plot(hypothesis(H2b_m,"conditionDyads:mosession:motrial > 0", class="sd", group="subject"))
+plot(hypothesis(H2b_m,"conditionIndividuals > 0", class="sd", group="stimulus"))
+plot(hypothesis(H2b_m,"conditionDyads > 0", class="sd", group="stimulus"))
 
 ## Hypothesis testing
-### Dyads decrease performance less than individuals 
-hypothesis(Analysis1bTrial_m2,"conditionIndividuals:motrial*8 < conditionDyads:motrial*8", class="bsp")
-hypothesis(Analysis1bTrial_m2,"conditionIndividuals:motrial*8 < 0", class="bsp")
-hypothesis(Analysis1bTrial_m2,"conditionDyads:motrial*8 > 0", class="bsp")
-hypothesis(Analysis1bTrial_m2,"conditionIndividuals:mosession:motrial*8 < conditionDyads:mosession:motrial*8", class="bsp")
-hypothesis(Analysis1bTrial_m2,"conditionIndividuals:mosession:motrial*8 < 0", class="bsp")
-hypothesis(Analysis1bTrial_m2,"conditionDyads:mosession:motrial*8 > 0", class="bsp")
+
+### Dyads learn quicker than individuals
+### Dyads learning decreases less than individuals
+Post <- posterior_samples(H2b_m, pars = c(
+  "b_conditionIndividuals", "b_conditionDyads",
+  "bsp_conditionIndividuals:mosession", "bsp_conditionDyads:mosession",
+  "simo_conditionIndividuals:mosession","simo_conditionDyads:mosession",
+  "bsp_conditionIndividuals:motrial", "bsp_conditionDyads:motrial",
+  "simo_conditionIndividuals:motrial","simo_conditionDyads:motrial",
+  "bsp_conditionIndividuals:mosession:motrial", "bsp_conditionDyads:mosession:motrial",
+  "simo_conditionIndividuals:mosession:motrial", "simo_conditionDyads:mosession:motrial")) 
+
+Post <- Post %>% mutate(
+  IndividualFinalS1 = inv_logit_scaled(`b_conditionIndividuals` + 32 * `bsp_conditionIndividuals:motrial`),
+  DyadFinalS1 = inv_logit_scaled(`b_conditionDyads` + 32 * `bsp_conditionDyads:motrial`),
+  IndividualFinalS2 = inv_logit_scaled(`b_conditionIndividuals` + 
+                       2 * `simo_conditionIndividuals:mosession1[1]` *
+                                       `bsp_conditionIndividuals:mosession` + 
+                       32 * 
+                       (`bsp_conditionIndividuals:motrial` + 
+                       `bsp_conditionIndividuals:mosession:motrial`
+                       )),
+  DyadFinalS2 = inv_logit_scaled(`b_conditionDyads` + 
+                       2 * `simo_conditionDyads:mosession1[1]` *
+                                       `bsp_conditionDyads:mosession` + 
+                       32 * 
+                       (`bsp_conditionDyads:motrial` + 
+                       `bsp_conditionDyads:mosession:motrial`
+                       )),
+  IndividualFinalS3 = inv_logit_scaled(`b_conditionIndividuals` + 
+                       3 * `bsp_conditionIndividuals:mosession` + 
+                       32 * 
+                       (`bsp_conditionIndividuals:motrial` + 
+                       `bsp_conditionIndividuals:mosession:motrial`
+                       )),
+  DyadFinalS3 = inv_logit_scaled(`b_conditionDyads` + 
+                       3 * `bsp_conditionDyads:mosession` + 
+                       32 * 
+                       (`bsp_conditionDyads:motrial` + 
+                       `bsp_conditionDyads:mosession:motrial`
+                       )),
+  H3 = ((DyadFinalS1 + DyadFinalS2 + DyadFinalS3)/ 3) - ((IndividualFinalS1 + IndividualFinalS2 + IndividualFinalS3)/ 3),
+  H3S1 = DyadFinalS1  - IndividualFinalS1, 
+  H3S2 = DyadFinalS2  - IndividualFinalS2, 
+  H3S3 = DyadFinalS3  - IndividualFinalS3,
+  H4 = (DyadFinalS3  - IndividualFinalS3) - (DyadFinalS1  - IndividualFinalS1) 
+)
+
+H3_test <- paste0("B = ", round(mean(Post$H3, na.rm = T), 2) * 100, 
+               ", SE = ", round(sd(Post$H3, na.rm = T), 2) * 100, 
+               ", 95% CI's = ", round(quantile(Post$H3, .025)[[1]], 2) * 100, 
+               " ", round(quantile(Post$H3, .975)[[1]],2)  * 100,
+               ", ER = ", round(sum(Post$H3 > 0)/sum(Post$H3 <= 0), 2),
+               ", credibility = ", round(sum(Post$H3 > 0)/nrow(Post), 2) * 100)
+
+H3S1_test <- paste0("B = ", round(mean(Post$H3S1, na.rm = T), 2) * 100, 
+               ", SE = ", round(sd(Post$H3S1, na.rm = T), 2) * 100, 
+               ", 95% CI's = ", round(quantile(Post$H3S1, .025)[[1]], 2) * 100, 
+               " ", round(quantile(Post$H3S1, .975)[[1]],2)  * 100,
+               ", ER = ", round(sum(Post$H3S1 > 0)/sum(Post$H3S1 <= 0), 2),
+               ", credibility = ", round(sum(Post$H3S1 > 0)/nrow(Post), 2) * 100)
+
+H3S2_test <- paste0("B = ", round(mean(Post$H3S2, na.rm = T), 2) * 100, 
+               ", SE = ", round(sd(Post$H3S2, na.rm = T), 2) * 100, 
+               ", 95% CI's = ", round(quantile(Post$H3S2, .025)[[1]], 2) * 100, 
+               " ", round(quantile(Post$H3S2, .975)[[1]],2)  * 100,
+               ", ER = ", round(sum(Post$H3S2 > 0)/sum(Post$H3S2 <= 0), 2),
+               ", credibility = ", round(sum(Post$H3S2 > 0)/nrow(Post), 2) * 100)
+
+H3S3_test <- paste0("B = ", round(mean(Post$H3S3, na.rm = T), 2) * 100, 
+               ", SE = ", round(sd(Post$H3S3, na.rm = T), 2) * 100, 
+               ", 95% CI's = ", round(quantile(Post$H3S3, .025)[[1]], 2) * 100, 
+               " ", round(quantile(Post$H3S3, .975)[[1]],2)  * 100,
+               ", ER = ", round(sum(Post$H3S3 > 0)/sum(Post$H3S3 <= 0), 2),
+               ", credibility = ", round(sum(Post$H3S3 > 0)/nrow(Post), 2) * 100)
+
+H4_test <- paste0("B = ", round(mean(Post$H4, na.rm = T), 2) * 100, 
+               ", SE = ", round(sd(Post$H4, na.rm = T), 2) * 100, 
+               ", 95% CI's = ", round(quantile(Post$H4, .025)[[1]], 2) * 100, 
+               " ", round(quantile(Post$H4, .975)[[1]],2)  * 100,
+               ", ER = ", round(sum(Post$H4 > 0)/sum(Post$H4 <= 0), 2),
+               ", credibility = ", round(sum(Post$H4 > 0)/nrow(Post), 2) * 100)
+
+round(mean((Post$DyadFinalS1 + Post$DyadFinalS2 + Post$DyadFinalS3)/3),2)*100
+round(sd((Post$DyadFinalS1 + Post$DyadFinalS2 + Post$DyadFinalS3)/3),2)*100
+round(quantile((Post$DyadFinalS1 + Post$DyadFinalS2 + Post$DyadFinalS3)/3, c(.025, 0.975)),2)*100
+round(mean((Post$IndividualFinalS1 + Post$IndividualFinalS2 + Post$IndividualFinalS3)/3),2)*100
+round(sd((Post$IndividualFinalS1 + Post$IndividualFinalS2 + Post$IndividualFinalS3)/3),2)*100
+round(quantile((Post$IndividualFinalS1 + Post$IndividualFinalS2 + Post$IndividualFinalS3)/3, c(.025, 0.975)),2)*100
+
+round(mean((Post$DyadFinalS1)),2)*100
+round(sd((Post$DyadFinalS1)),2)*100
+round(quantile((Post$DyadFinalS1), c(.025, 0.975)),2)*100
+
+round(mean((Post$DyadFinalS1 )),2)*100
+round(sd((Post$DyadFinalS1 )),2)*100
+round(quantile((Post$DyadFinalS1), c(.025, 0.975)),2)*100
+round(mean((Post$DyadFinalS2 )),2)*100
+round(sd((Post$DyadFinalS2 )),2)*100
+round(quantile((Post$DyadFinalS2), c(.025, 0.975)),2)*100
+round(mean((Post$DyadFinalS3 )),2)*100
+round(sd((Post$DyadFinalS3 )),2)*100
+round(quantile((Post$DyadFinalS3), c(.025, 0.975)),2)*100
+
+round(mean((Post$IndividualFinalS1 )),2)*100
+round(sd((Post$IndividualFinalS1 )),2)*100
+round(quantile((Post$IndividualFinalS1), c(.025, 0.975)),2)*100
+round(mean((Post$IndividualFinalS2 )),2)*100
+round(sd((Post$IndividualFinalS2 )),2)*100
+round(quantile((Post$IndividualFinalS2), c(.025, 0.975)),2)*100
+round(mean((Post$IndividualFinalS3 )),2)*100
+round(sd((Post$IndividualFinalS3 )),2)*100
+round(quantile((Post$IndividualFinalS3), c(.025, 0.975)),2)*100
+
+round(mean((Post$DyadFinalS1 - Post$DyadFinalS3)),2)*100
+round(sd((Post$DyadFinalS1 - Post$DyadFinalS3)),2)*100
+round(quantile((Post$DyadFinalS1 - Post$DyadFinalS3), c(.025, 0.975)),2)*100
+
+round(mean((Post$IndividualFinalS1 - Post$IndividualFinalS3)),2)*100
+round(sd((Post$IndividualFinalS1 - Post$IndividualFinalS3)),2)*100
+round(quantile((Post$IndividualFinalS1 - Post$IndividualFinalS3), c(.025, 0.975)),2)*100
 
 ## PLOTTING
-conditional_effects(Analysis1bTrial_m2)
+plot(conditional_effects(H2b_m), ask = FALSE)
 
-Preds <- posterior_linpred(Analysis1bTrial_m2, summary = TRUE)
-Preds <- colMeans(Preds, na.rm = TRUE)
-d2$Preds <- rethinking::inv_logit(Preds)
-d2$accuracy <- as.numeric(d2$correct)-1
+Preds <- inv_logit_scaled(posterior_linpred(H2b_m))
+d1a <- subset(d1, cycle==1)
+d1a$AccuracyP <- Preds[1,]
+d1a$Accuracy <- as.numeric(d1a$correct)-1
 
-ggplot(d2, aes(trial, Preds, color=condition)) + 
-  geom_smooth(method=lm, formula = y~poly(x,1)) + 
+ggplot(d1a, aes(trial,AccuracyP,color=condition)) +
+  geom_smooth(method = "scam", 
+        formula = y ~ s(x, k = 5, bs = "mpi"), 
+        se = T) +
   facet_wrap(.~session) +
   theme_classic()
 
-ggplot(d2, aes(trial, accuracy, color=condition)) + 
-  geom_smooth(method=lm, formula = y~poly(x,1)) + 
+ggplot(d1a, aes(trial,Accuracy, color = condition)) +
+  geom_smooth(method = "scam", 
+        formula = y ~ s(x, k = 5, bs = "mpi"), 
+        se = T) +
+  stat_smooth(geom='line',aes(group = subject), alpha=0.3, method = "scam", 
+        formula = y ~ s(x, k = 5, bs = "mpi"), 
+        se = F) +
   facet_wrap(.~session) +
   theme_classic()
-
 ```
 
-
-### Conversation analysis
-
-Looks at relations between:
-- cosine similarity during training and performance during testing
-- speech ratio during training and performance during testing
+## Hypothesis 3 - Semantic diversity predicts performance
 
 ```{r}
-# Load the conversation data
-DataConv=read.csv('DATA_lemma.csv', sep=",", header=TRUE) # Name of the file
-# Calculate performance for pair, session, test
-Data$correct=as.numeric(Data$correct)-1
-Data$correct=as.factor(Data$correct)
+FinalData <- read_csv(here("data", "IndividualDifferences.csv"))
 
-DataConv$Pair=DataConv$Pair+30
-DataConv$Cosine[DataConv$Cosine==0]=NA
-DataConv$CosinePredict[DataConv$Test==1]=DataConv$Cosine[DataConv$Test==0]
-DataConv$CosineDistance[complete.cases(DataConv$Ratio)]=1-DataConv$Cosine[complete.cases(DataConv$Ratio)]
-DataConv$CosineDistancePredict[DataConv$Test==1]=DataConv$CosineDistance[DataConv$Test==0]
+FinalData <- FinalData %>% mutate(
+  Session = as.factor(Session),
+  SemanticLevelTraining = 1 - SemanticLevelTraining)
 
-DataConv=merge(Data,DataConv,by.x=c("subject","session","test"),by.y=c("Pair","Session","Test"),all=T)
+## Now models
+PerformanceTrainingSemanticLevelSession_f <- bf(
+  PerformanceTrainingP ~ 0 + Session +  SemanticLevelTraining:Session + ( 1|Pair)
+)
 
-CosineModelTrain=glmer(correct~CosineDistance*session+trial+(1+session+trial|subject)+(1+session+trial|stimulus),DataConv[DataConv$test==0,],family=binomial,nAGQ=0, control=glmerControl(optimizer = "nloptwrap"))
-summary(CosineModelTrain)
+PerformanceTestSemanticLevelSession_f <- bf(
+  PerformanceTestP ~ 0 + Session +  SemanticLevelTraining:Session + ( 1|Pair)
+)
 
-plot5= ggplot(subset(DataConv,test==0),aes(CosineDistance,as.numeric(correct))) + stat_smooth(method = "lm")+theme_classic()
-plot5
+get_prior(PerformanceTrainingSemanticLevelSession_f, FinalData, family=gaussian)
 
-CosineModelTest=glmer(correct~CosineDistance*session+trial+(1+trial|subject)+(1+session+trial|stimulus),DataConv[DataConv$test==1,],family=binomial,nAGQ=0, control=glmerControl(optimizer = "nloptwrap"))
-summary(CosineModelTest)
+prior <- c(
+  prior(normal(0, 0.3), class = b),
+  prior(normal(0, 0.5), class = sd),
+  prior(normal(0, 0.5), class = sigma)
+)
 
-CosineModelPredict=glmer(correct~CosineDistancePredict+session+trial+(1+session+trial|subject)+(1+session+trial|stimulus),DataConv[DataConv$test==1,],family=binomial,nAGQ=0, control=glmerControl(optimizer = "nloptwrap"))
-summary(CosineModelPredict)
+mSSemLvl <- brm(PerformanceTrainingSemanticLevelSession_f, 
+                FinalData, chains=2, cores=2, 
+                prior = prior,
+                sample_prior = T,
+                file = here("models", "PerformanceTrainingSemanticLevelSession"),
+                control=list(adapt_delta=0.99))
 
-p_load(tidyverse)
+mSSemLvl_T <- brm(PerformanceTestSemanticLevelSession_f, 
+                FinalData, chains=2, cores=2, 
+                prior = prior,
+                sample_prior = T,
+                file = here("models", "PerformanceTestSemanticLevelSession"),
+                control=list(adapt_delta=0.99))
 
-CosineCleanEstimates=lmer(CosineDistance~1+session+trial+(1+session|subject),DataConv[DataConv$test==0,],REML=F,control=lmerControl(optimizer = "nloptwrap"))
+plot(hypothesis(mSSemLvl, "Session1 > 0"))
+plot(hypothesis(mSSemLvl, "Session1:SemanticLevelTraining  > 0"))
+plot(hypothesis(mSSemLvl, "Session2 > 0"))
+plot(hypothesis(mSSemLvl, "Session2:SemanticLevelTraining  > 0"))
+plot(hypothesis(mSSemLvl, "Session3 > 0"))
+plot(hypothesis(mSSemLvl, "Session3:SemanticLevelTraining  > 0"))
+plot(hypothesis(mSSemLvl, "Intercept  > 0", class="sd", group="Pair"))
 
-DataConv2=subset(DataConv, test==0 & condition=='Dyads' & complete.cases(DataConv[,c("CosineDistance","session","trial","subject")]))
-DataConv2$CosineClean=resid(CosineCleanEstimates)
+plot(hypothesis(mSSemLvl_T, "Session1 > 0"))
+plot(hypothesis(mSSemLvl_T, "Session1:SemanticLevelTraining  > 0"))
+plot(hypothesis(mSSemLvl_T, "Session2 > 0"))
+plot(hypothesis(mSSemLvl_T, "Session2:SemanticLevelTraining  > 0"))
+plot(hypothesis(mSSemLvl_T, "Session3 > 0"))
+plot(hypothesis(mSSemLvl_T, "Session3:SemanticLevelTraining  > 0"))
+plot(hypothesis(mSSemLvl_T, "Intercept  > 0", class="sd", group="Pair"))
 
-DataConv2$Accuracy=as.numeric(DataConv2$correct)*100-100
-TempData=DataConv2 %>% group_by(subject,session) %>% dplyr::summarise(Performance=mean(Accuracy,na.rm=T),Cosine=mean(CosineClean,na.rm=T))
-TempData$Cosine=TempData$Cosine+0.1
-  
-plot6= ggplot(TempData,aes(Cosine,Performance)) + stat_smooth(method = "lm")+geom_point()+theme_classic()
-plot6
+hypothesis(mSSemLvl, c(
+  "(Session1:SemanticLevelTraining + Session2:SemanticLevelTraining + Session3:SemanticLevelTraining)/3  > 0", 
+  "Session1:SemanticLevelTraining  > 0", 
+           "Session2:SemanticLevelTraining  > 0",
+           "Session3:SemanticLevelTraining  > 0"))
+bayes_R2(mSSemLvl)
+hypothesis(mSSemLvl_T, c(
+  "(Session1:SemanticLevelTraining + Session2:SemanticLevelTraining + Session3:SemanticLevelTraining)/3  > 0", 
+  "Session1:SemanticLevelTraining  > 0", 
+           "Session2:SemanticLevelTraining  > 0",
+           "Session3:SemanticLevelTraining  > 0"))
+
+
+library(patchwork)
+p1 <- ggplot(FinalData, 
+             aes(SemanticLevelTraining, PerformanceTraining)) +
+  geom_point() + geom_smooth(method=lm) + theme_classic()
+p2 <- ggplot(FinalData, 
+             aes(SemanticLevelTraining, PerformanceTest)) + 
+  geom_point() + geom_smooth(method=lm) + theme_classic()
+p1+p2
+
+p1 <- ggplot(FinalData, 
+             aes(SemanticLevelTraining, PerformanceTraining, color=Session, group=Session)) +
+  geom_point() + geom_smooth(method=lm) + theme_classic()
+p2 <- ggplot(FinalData, 
+             aes(SemanticLevelTraining, PerformanceTest, color=Session, group=Session)) + 
+  geom_point() + geom_smooth(method=lm) + theme_classic()
+p1+p2
+
+
+p1 <- plot(conditional_effects(mSSemLvl), plot=F, points=T)[[2]] + theme_classic()
+p2 <- plot(conditional_effects(mSSemLvl_T), plot=F, points=T)[[2]] + theme_classic()
+p1+p2
 ```
 
-### Analysis 1 - Controlling for differences in RT, effort and motivation by condition
+### Control Analyses - Controlling for differences in RT, effort and motivation by condition
 
 ```{r SurveyTest}
 dSurvey <- dSurvey %>% mutate(
@@ -1543,5 +869,45 @@ RT_m <- brm(RT_f, d,
                     control = list(adapt_delta=0.99, max_treedepth=20))
 hypothesis(RT_m, "conditionIndividuals:session")
 
-```
+PerformanceTrainingEffortSession_f <- bf(
+  PerformanceTrainingP ~ 0 + Session +  mo(Effort):Session + ( 1|Pair)
+)
+mTrainingSEffort <- brm(PerformanceTrainingEffortSession_f, FinalData, chains=2, cores=1, control=list(adapt_delta=0.99))
+hypothesis(mTrainingSEffort, 
+           c("(Session1:moEffort + Session2:moEffort + Session3:moEffort)/3  > 0", 
+             "Session1:moEffort  > 0", 
+           "Session2:moEffort  > 0",
+           "Session3:moEffort  > 0"), class="bsp")
 
+PerformanceTrainingMotivationSession_f <- bf(
+  PerformanceTrainingP ~ 0 + Session +  mo(Motivation):Session + ( 1|Pair)
+)
+mTrainingSMotivation <- brm(PerformanceTrainingMotivationSession_f, FinalData, chains=2, cores=1, control=list(adapt_delta=0.99))
+hypothesis(mTrainingSMotivation, 
+           c("(Session1:moMotivation + Session2:moMotivation + Session3:moMotivation)/3  > 0",
+           "Session1:moMotivation  > 0", 
+           "Session2:moMotivation  > 0",
+           "Session3:moMotivation  > 0"), class="bsp")
+
+PerformanceTestEffortSession_f <- bf(
+  PerformanceTestP ~ 0 + Session +  mo(Effort):Session + ( 1|Pair)
+)
+mTestSEffort <- brm(PerformanceTestEffortSession_f, FinalData, chains=2, cores=1, control=list(adapt_delta=0.99))
+
+hypothesis(mTestSEffort, 
+            c("(Session1:moEffort + Session2:moEffort + Session3:moEffort)/3  > 0", 
+              "Session1:moEffort  > 0", 
+            "Session2:moEffort  > 0",
+            "Session3:moEffort  > 0"), class="bsp")
+PerformanceTestMotivationSession_f <- bf(
+  PerformanceTestP ~ 0 + Session +  mo(Motivation):Session + ( 1|Pair)
+)
+mTestSMotivation <- brm(PerformanceTestMotivationSession_f, FinalData, chains=2, cores=1, control=list(adapt_delta=0.99))
+
+hypothesis(mTestSMotivation, 
+           c("(Session1:moMotivation + Session2:moMotivation + Session3:moMotivation)/3  > 0",
+           "Session1:moMotivation  > 0", 
+           "Session2:moMotivation  > 0",
+           "Session3:moMotivation  > 0"), class="bsp")
+
+```
