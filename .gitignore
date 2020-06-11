@@ -5,3 +5,5 @@
 data/.DS_Store
 scripts/.DS_Store
 data/old/
+papers/
+models/
