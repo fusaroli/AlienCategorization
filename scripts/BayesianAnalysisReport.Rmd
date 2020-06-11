@@ -673,6 +673,7 @@ Fig4 <- ggplot(d1a) +
   theme_classic()
 
 ggsave(here("plots", "Figure4.svg"), Fig4, height = 10, width = 10)
+
 ```
 
 ## Hypothesis 3 - Semantic diversity predicts performance
@@ -745,26 +746,32 @@ hypothesis(mSSemLvl_T, c(
 
 
 library(patchwork)
-p1 <- ggplot(FinalData, 
-             aes(SemanticLevelTraining, PerformanceTraining)) +
+
+FinalData <- FinalData %>% mutate(
+  SemanticDiversity = (SemanticLevelTraining - min(SemanticLevelTraining, na.rm=T)) / max(SemanticLevelTraining - min(SemanticLevelTraining, na.rm=T), na.rm=T)
+)
+
+p1 <- ggplot(FinalData,
+             aes(SemanticDiversity, PerformanceTraining)) +
   geom_point() + geom_smooth(method=lm) + theme_classic()
 p2 <- ggplot(FinalData, 
-             aes(SemanticLevelTraining, PerformanceTest)) + 
+             aes(SemanticDiversity, PerformanceTest)) + 
   geom_point() + geom_smooth(method=lm) + theme_classic()
-p1+p2
 
-p1 <- ggplot(FinalData, 
-             aes(SemanticLevelTraining, PerformanceTraining, color=Session, group=Session)) +
+p3 <- ggplot(FinalData, 
+             aes(SemanticDiversity, PerformanceTraining, color=Session, group=Session)) +
   geom_point() + geom_smooth(method=lm) + theme_classic()
-p2 <- ggplot(FinalData, 
-             aes(SemanticLevelTraining, PerformanceTest, color=Session, group=Session)) + 
+p4 <- ggplot(FinalData, 
+             aes(SemanticDiversity, PerformanceTest, color=Session, group=Session)) + 
   geom_point() + geom_smooth(method=lm) + theme_classic()
-p1+p2
 
 
-p1 <- plot(conditional_effects(mSSemLvl), plot=F, points=T)[[2]] + theme_classic()
-p2 <- plot(conditional_effects(mSSemLvl_T), plot=F, points=T)[[2]] + theme_classic()
-p1+p2
+p5 <- plot(conditional_effects(mSSemLvl), plot=F, points=T)[[2]] + theme_classic()
+p6 <- plot(conditional_effects(mSSemLvl_T), plot=F, points=T)[[2]] + theme_classic()
+
+(p1 + p3) / (p2 + p4)
+ggsave(here("plots", "Figure5.svg"))
+
 ```
 
 ### Control Analyses - Controlling for differences in RT, effort and motivation by condition
