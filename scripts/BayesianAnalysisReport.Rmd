@@ -443,28 +443,21 @@ plot(conditional_effects(H2_m), plot = FALSE)[[3]] +
   theme_classic()
 
 d2$Accuracy <- as.numeric(d2$correct)-1
-dd <- d2 %>% mutate(correct = as.numeric(correct)-1) %>%
+d2$Preds <- predict(Analysis1b_m)[,1]
+dd <- d2 %>%
   group_by(subject, condition, session) %>%
-  summarize(Accuracy = mean(correct, na.rm=T))
+  summarize(Accuracy1 = mean(Preds, na.rm=T), Accuracy2 = mean(Accuracy,na.rm=T))
 
-ggplot(dd, aes(session, Accuracy, color = condition)) + 
-  geom_smooth(method = "scam", 
-        formula = y ~ s(x, k = 8, bs = "mpd"), 
-        se = T) +
-  geom_line(aes(group=subject, color = condition), alpha=0.3) + 
-  scale_x_continuous(breaks=c(1, 2, 3)) + 
-  theme_classic()
-
-ggplot(d2, aes(session, Accuracy, color = condition)) +
-  geom_smooth(method = "scam", 
+Fig3 <- ggplot(dd) + 
+  geom_smooth(aes(session, Accuracy1, color = condition), method = "scam", 
         formula = y ~ s(x, k = 4, bs = "mpd"), 
         se = T) +
-  stat_smooth(geom='line',aes(group = subject), alpha=0.2, method = "scam", 
-        formula = y ~ s(x, k = 4, bs = "mpd"), 
-        se = F) +
+  geom_line(aes(session, Accuracy1, group=subject, color = condition), alpha=0.2) + 
   scale_x_continuous(breaks=c(1, 2, 3)) + 
+  ylab("Test Performance") +
   theme_classic()
 
+ggsave(here("plots","Figure3.svg"), Fig3, height=10, width=10)
 
 ## Performance at session 1 is best for dyads
 hypothesis(H2a_m,"conditionDyads > conditionIndividuals", class="b")
