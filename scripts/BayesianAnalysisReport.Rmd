@@ -443,7 +443,7 @@ plot(conditional_effects(H2_m), plot = FALSE)[[3]] +
   theme_classic()
 
 d2$Accuracy <- as.numeric(d2$correct)-1
-d2$Preds <- predict(Analysis1b_m)[,1]
+d2$Preds <- predict(H2a_m)[,1]
 dd <- d2 %>%
   group_by(subject, condition, session) %>%
   summarize(Accuracy1 = mean(Preds, na.rm=T), Accuracy2 = mean(Accuracy,na.rm=T))
@@ -459,24 +459,6 @@ Fig3 <- ggplot(dd) +
 
 ggsave(here("plots","Figure3.svg"), Fig3, height=10, width=10)
 
-## Performance at session 1 is best for dyads
-hypothesis(H2a_m,"conditionDyads > conditionIndividuals", class="b")
-## Decrease in performance by session is smaller for dyads
-hypothesis(H2a_m,"conditionDyads:mosession > conditionIndividuals:mosession", class="bsp")
-hypothesis(H2a_m,"conditionDyads:mosession < 0", class="bsp")
-hypothesis(H2a_m,"conditionIndividuals:mosession < 0", class="bsp")
-
-## Plotting
-plot(conditional_effects(H2a_m), plot = FALSE)[[3]] + theme_classic()
-d2$Accuracy <- as.numeric(d2$correct)-1
-ggplot(d2, aes(session,Accuracy, color = condition)) +
-  geom_smooth(method = "scam", 
-        formula = y ~ s(x, k = 5, bs = "mpd"), 
-        se = T) +
-  stat_smooth(geom='line',aes(group = subject), alpha=0.3, method = "scam", 
-        formula = y ~ s(x, k = 5, bs = "mpd"), 
-        se = F) +
-  theme_classic()
 ```
 
 ## H2b 
@@ -673,29 +655,24 @@ round(sd((Post$IndividualFinalS1 - Post$IndividualFinalS3)),2)*100
 round(quantile((Post$IndividualFinalS1 - Post$IndividualFinalS3), c(.025, 0.975)),2)*100
 
 ## PLOTTING
-plot(conditional_effects(H2b_m), ask = FALSE)
-
 Preds <- inv_logit_scaled(posterior_linpred(H2b_m))
 d1a <- subset(d1, cycle==1)
 d1a$AccuracyP <- Preds[1,]
 d1a$Accuracy <- as.numeric(d1a$correct)-1
 
-ggplot(d1a, aes(trial,AccuracyP,color=condition)) +
-  geom_smooth(method = "scam", 
+Fig4 <- ggplot(d1a) +
+  geom_smooth(aes(trial,AccuracyP, color = condition), 
+              method = "scam", 
         formula = y ~ s(x, k = 5, bs = "mpi"), 
         se = T) +
-  facet_wrap(.~session) +
-  theme_classic()
-
-ggplot(d1a, aes(trial,Accuracy, color = condition)) +
-  geom_smooth(method = "scam", 
-        formula = y ~ s(x, k = 5, bs = "mpi"), 
-        se = T) +
-  stat_smooth(geom='line',aes(group = subject), alpha=0.3, method = "scam", 
+  stat_smooth(aes(trial,Accuracy, color = condition,group = subject), geom='line', alpha=0.3, method = "scam", 
         formula = y ~ s(x, k = 5, bs = "mpi"), 
         se = F) +
   facet_wrap(.~session) +
+  ylab("Performance in the first 32 trials") +
   theme_classic()
+
+ggsave(here("plots", "Figure4.svg"), Fig4, height = 10, width = 10)
 ```
 
 ## Hypothesis 3 - Semantic diversity predicts performance
