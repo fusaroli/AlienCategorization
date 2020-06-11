@@ -261,17 +261,7 @@ Fig2 <- ggplot(dd) +
   ylab("Training Performance") + 
   theme_classic()
 
-ggsave(here("plots","Figure2.svg"), Fig2)
-
-ggplot(d1, aes(session, Accuracy, color = condition)) +
-  geom_smooth(method = "scam", 
-        formula = y ~ s(x, k = 4, bs = "mpd"), 
-        se = T) +
-  stat_smooth(geom='line',aes(group = subject), alpha=0.2, method = "scam", 
-        formula = y ~ s(x, k = 4, bs = "mpd"), 
-        se = F) +
-  scale_x_continuous(breaks=c(1, 2, 3)) + 
-  theme_classic()
+ggsave(here("plots","Figure2.svg"), Fig2, height=10, width=10)
 
 ```
 

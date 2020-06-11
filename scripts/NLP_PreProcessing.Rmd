@@ -746,7 +746,7 @@ PerformanceTraining <- d %>% subset(test==0) %>%
   mutate(Phase = "Training")
 
 PerformanceTest <- d %>% subset(test==1) %>%
-  mutate(Preds = predict(Analysis1b_m)) %>%
+  mutate(Preds = predict(Analysis1b_m)[,1]) %>%
   subset(condition == "Dyads") %>%
   group_by(subject, session) %>%
   dplyr::summarise(
@@ -755,7 +755,7 @@ PerformanceTest <- d %>% subset(test==1) %>%
   mutate(Phase = "Test")
         
 PerformanceCycle <- d %>% subset(cycle==1) %>%
-  mutate(Preds = predict(Analysis1aTrial_m3)) %>%
+  mutate(Preds = predict(Analysis1aTrial_m3)[,1]) %>%
   subset(condition == "Dyads" & trial==32) %>%
   group_by(subject, session) %>%
   dplyr::summarise(
@@ -801,6 +801,6 @@ for (s in unique(FinalData$Session)) {
   FinalData$SemanticLevelTest[FinalData$Session == s] = scale(FinalData$SemanticLevelTest[FinalData$Session == s])
 }
 
-write_csv(FinalData, here("data", "IndividualDifferences.csv"))
+write_csv(FinalData, here("data", "IndividualDifferences2.csv"))
 ```
 
