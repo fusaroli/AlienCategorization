@@ -737,7 +737,7 @@ Alignment2 <- merge(AlignmentTraining,AlignmentTest, all=T)
 
 # Merge it with performance data
 PerformanceTraining <- d %>% subset(test==0) %>%
-  mutate(Preds = predict(Analysis1a_m)) %>%
+  mutate(Preds = predict(Analysis1a_m)[,1]) %>%
   subset(condition == "Dyads") %>%
   group_by(subject, session) %>%
   dplyr::summarise(

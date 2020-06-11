@@ -244,21 +244,24 @@ round(quantile(Post$IndividualsS3, c(.025, 0.975)),2)*100
 ## Plotting
 plot(conditional_effects(H1_m), plot = FALSE)[[3]] + 
   scale_x_continuous(breaks=c(1, 2, 3)) + 
-  #ylim(.25, 1) +
   theme_classic()
 
 d1$Accuracy <- as.numeric(d1$correct)-1
-dd <- d1 %>% mutate(correct = as.numeric(correct)-1) %>%
+dd <- d1 %>% mutate(correct = predict(H1_m)[,1]) %>%
   group_by(subject, condition, session) %>%
-  summarize(Accuracy = mean(correct, na.rm=T))
+  summarize(Accuracy1 = mean(correct, na.rm=T),
+            Accuracy2 = mean(Accuracy, na.rm=T))
 
-ggplot(dd, aes(session, Accuracy, color = condition)) + 
-  geom_smooth(method = "scam", 
+Fig2 <- ggplot(dd) + 
+  geom_smooth(aes(session, Accuracy1, color = condition), method = "scam", 
         formula = y ~ s(x, k = 8, bs = "mpd"), 
         se = T) +
-  geom_line(aes(group=subject, color = condition), alpha=0.3) + 
+  geom_line(aes(session, Accuracy2, group=subject, color = condition), alpha=0.3) + 
   scale_x_continuous(breaks=c(1, 2, 3)) + 
+  ylab("Training Performance") + 
   theme_classic()
+
+ggsave(here("plots","Figure2.svg"), Fig2)
 
 ggplot(d1, aes(session, Accuracy, color = condition)) +
   geom_smooth(method = "scam", 
