@@ -480,7 +480,7 @@ H2b_m <- brm(
   cores = 2,
   iter = 4000,
   file = here("models","H2b_m"),
-  control = list(adapt_delta=0.9, max_treedepth=20)
+  control = list(adapt_delta = 0.9, max_treedepth = 20)
   )
 
 H2b_m  <- add_criterion(H2b_m, criterion = c("loo", "bayes_R2"))
@@ -665,6 +665,8 @@ d1a <- subset(d1, cycle==1)
 d1a$AccuracyP <- Preds[1,]
 d1a$Accuracy <- as.numeric(d1a$correct)-1
 
+write_csv(d1a, here("data","Fig4_data.csv"))
+
 Fig4 <- ggplot(d1a) +
   geom_smooth(aes(trial,AccuracyP, color = condition), 
               method = "scam", 
@@ -755,6 +757,8 @@ library(patchwork)
 FinalData <- FinalData %>% mutate(
   SemanticDiversity = ((SemanticLevelTraining - min(SemanticLevelTraining, na.rm=T)) / max(SemanticLevelTraining - min(SemanticLevelTraining, na.rm=T), na.rm=T))
 )
+
+write_csv(FinalData, here("data", "Fig5_data.csv"))
 
 p1 <- ggplot(FinalData,
              aes(SemanticDiversity, PerformanceTraining)) +
