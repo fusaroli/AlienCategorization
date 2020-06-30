@@ -25,7 +25,8 @@ pacman::p_load(
   brms,
   here,
   viridis,
-  bayesplot
+  bayesplot,
+  scam
 )
 color_scheme_set("viridis")
 
@@ -252,6 +253,8 @@ dd <- d1 %>% mutate(correct = predict(H1_m)[,1]) %>%
   summarize(Accuracy1 = mean(correct, na.rm=T),
             Accuracy2 = mean(Accuracy, na.rm=T))
 
+write_csv(dd, here("data","Fig2_data.csv"))
+dd <- read_csv(here("data","Fig2_data.csv"))
 Fig2 <- ggplot(dd) + 
   geom_smooth(aes(session, Accuracy1, color = condition), method = "scam", 
         formula = y ~ s(x, k = 8, bs = "mpd"), 
@@ -447,6 +450,8 @@ d2$Preds <- predict(H2a_m)[,1]
 dd <- d2 %>%
   group_by(subject, condition, session) %>%
   summarize(Accuracy1 = mean(Preds, na.rm=T), Accuracy2 = mean(Accuracy,na.rm=T))
+write_csv(dd, here("data","Fig3_data.csv"))
+dd <- read_csv(here("data","Fig3_data.csv"))
 
 Fig3 <- ggplot(dd) + 
   geom_smooth(aes(session, Accuracy1, color = condition), method = "scam", 
@@ -466,10 +471,10 @@ ggsave(here("plots","Figure3.svg"), Fig3, height=10, width=10)
 ```{r}
 ### Now only first cycle
 H2b_m <- brm(
-  H2b_f, 
+  H1_f, 
   subset(d1, cycle==1), 
   family = bernoulli,
-  prior = H2b_prior,
+  prior = H1_prior,
   sample_prior = TRUE,
   chains = 2,
   cores = 2,
@@ -706,14 +711,14 @@ mSSemLvl <- brm(PerformanceTrainingSemanticLevelSession_f,
                 FinalData, chains=2, cores=2, 
                 prior = prior,
                 sample_prior = T,
-                file = here("models", "PerformanceTrainingSemanticLevelSession"),
+                file = here("models", "PerformanceTrainingSemanticLevelSession2"),
                 control=list(adapt_delta=0.99))
 
 mSSemLvl_T <- brm(PerformanceTestSemanticLevelSession_f, 
                 FinalData, chains=2, cores=2, 
                 prior = prior,
                 sample_prior = T,
-                file = here("models", "PerformanceTestSemanticLevelSession"),
+                file = here("models", "PerformanceTestSemanticLevelSession2"),
                 control=list(adapt_delta=0.99))
 
 plot(hypothesis(mSSemLvl, "Session1 > 0"))
@@ -748,7 +753,7 @@ hypothesis(mSSemLvl_T, c(
 library(patchwork)
 
 FinalData <- FinalData %>% mutate(
-  SemanticDiversity = (SemanticLevelTraining - min(SemanticLevelTraining, na.rm=T)) / max(SemanticLevelTraining - min(SemanticLevelTraining, na.rm=T), na.rm=T)
+  SemanticDiversity = ((SemanticLevelTraining - min(SemanticLevelTraining, na.rm=T)) / max(SemanticLevelTraining - min(SemanticLevelTraining, na.rm=T), na.rm=T))
 )
 
 p1 <- ggplot(FinalData,
@@ -770,7 +775,7 @@ p5 <- plot(conditional_effects(mSSemLvl), plot=F, points=T)[[2]] + theme_classic
 p6 <- plot(conditional_effects(mSSemLvl_T), plot=F, points=T)[[2]] + theme_classic()
 
 (p1 + p3) / (p2 + p4)
-ggsave(here("plots", "Figure5.svg"))
+ggsave(here("plots", "Figure5.svg"), width=10, height=10)
 
 ```
 
