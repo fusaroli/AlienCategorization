@@ -20,22 +20,11 @@ Fig2 <- ggplot(dd) +
   ylab("Training Performance") + 
   theme_classic()
 
-## Figure 3 
-dd <- read_csv(here("data","Fig3_data.csv"))
 
-Fig3 <- ggplot(dd) + 
-  geom_smooth(aes(session, Accuracy1, color = condition), method = "scam", 
-              formula = y ~ s(x, k = 4, bs = "mpd"), 
-              se = T) +
-  geom_line(aes(session, Accuracy1, group=subject, color = condition), alpha=0.2) + 
-  scale_x_continuous(breaks=c(1, 2, 3)) + 
-  ylab("Test Performance") +
-  theme_classic()
-
-# Figure 5
+# Figure 3
 d1a <- read_csv(here("data","Fig4_data.csv"))
 
-Fig4 <- ggplot(d1a) +
+Fig3 <- ggplot(d1a) +
   geom_smooth(aes(trial,AccuracyP, color = condition), 
               method = "scam", 
               formula = y ~ s(x, k = 5, bs = "mpi"), 
@@ -46,6 +35,19 @@ Fig4 <- ggplot(d1a) +
   facet_wrap(.~session) +
   ylab("Performance in the first 32 trials") +
   theme_classic()
+
+## Figure 4 
+dd <- read_csv(here("data","Fig3_data.csv"))
+
+Fig4 <- ggplot(dd) + 
+  geom_smooth(aes(session, Accuracy1, color = condition), method = "scam", 
+              formula = y ~ s(x, k = 4, bs = "mpd"), 
+              se = T) +
+  geom_line(aes(session, Accuracy1, group=subject, color = condition), alpha=0.2) + 
+  scale_x_continuous(breaks=c(1, 2, 3)) + 
+  ylab("Test Performance") +
+  theme_classic()
+
 
 # Figure 5
 FinalData <- read_csv(here("data", "Fig5_data.csv"))

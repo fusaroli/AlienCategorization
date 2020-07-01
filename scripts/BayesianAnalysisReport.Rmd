@@ -450,10 +450,10 @@ d2$Preds <- predict(H2a_m)[,1]
 dd <- d2 %>%
   group_by(subject, condition, session) %>%
   summarize(Accuracy1 = mean(Preds, na.rm=T), Accuracy2 = mean(Accuracy,na.rm=T))
-write_csv(dd, here("data","Fig3_data.csv"))
-dd <- read_csv(here("data","Fig3_data.csv"))
+write_csv(dd, here("data","Fig4_data.csv"))
+dd <- read_csv(here("data","Fig4_data.csv"))
 
-Fig3 <- ggplot(dd) + 
+Fig4 <- ggplot(dd) + 
   geom_smooth(aes(session, Accuracy1, color = condition), method = "scam", 
         formula = y ~ s(x, k = 4, bs = "mpd"), 
         se = T) +
@@ -462,7 +462,7 @@ Fig3 <- ggplot(dd) +
   ylab("Test Performance") +
   theme_classic()
 
-ggsave(here("plots","Figure3.svg"), Fig3, height=10, width=10)
+ggsave(here("plots","Figure4.svg"), Fig3, height=10, width=10)
 
 ```
 
@@ -665,9 +665,9 @@ d1a <- subset(d1, cycle==1)
 d1a$AccuracyP <- Preds[1,]
 d1a$Accuracy <- as.numeric(d1a$correct)-1
 
-write_csv(d1a, here("data","Fig4_data.csv"))
+write_csv(d1a, here("data","Fig3_data.csv"))
 
-Fig4 <- ggplot(d1a) +
+Fig3 <- ggplot(d1a) +
   geom_smooth(aes(trial,AccuracyP, color = condition), 
               method = "scam", 
         formula = y ~ s(x, k = 5, bs = "mpi"), 
@@ -679,7 +679,7 @@ Fig4 <- ggplot(d1a) +
   ylab("Performance in the first 32 trials") +
   theme_classic()
 
-ggsave(here("plots", "Figure4.svg"), Fig4, height = 10, width = 10)
+ggsave(here("plots", "Figure3.svg"), Fig4, height = 10, width = 10)
 
 ```
 
