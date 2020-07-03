@@ -6,44 +6,59 @@ pacman::p_load(
   scam,
   patchwork
 )
-color_scheme_set("viridis")
+#color_scheme_set("viridis")
 
 ## Figure 2
-dd <- read_csv(here("data","Fig2_data.csv"))
+dd <- read_csv(here("data", "Fig2_data.csv"))
+dd$condition <- as.factor(dd$condition)
+levels(dd$condition) <- c("Groups","Individuals")
 
-Fig2 <- ggplot(dd) + 
+
+ggplot(dd) + 
   geom_smooth(aes(session, Accuracy1, color = condition), method = "scam", 
               formula = y ~ s(x, k = 8, bs = "mpd"), 
               se = T) +
   geom_line(aes(session, Accuracy2, group=subject, color = condition), alpha=0.3) + 
   scale_x_continuous(breaks=c(1, 2, 3)) + 
-  ylab("Training Performance") + 
-  theme_classic()
+  ylab("Training Performance") +
+  scale_color_brewer(palette="Dark2") +
+  theme_classic() +
+  labs(x = "Complexity level", y = "Training Performance (accuracy)", color = "Condition")
 
+ggsave("plots/figure2.pdf", width = 5,height = 4)
 
 # Figure 3
-d1a <- read_csv(here("data","Fig4_data.csv"))
+d1a <- read_csv(here("data", "Fig3_data.csv"))
+d1a$condition <- as.factor(d1a$condition)
+levels(d1a$condition) <- c("Groups","Individuals")
 
-Fig3 <- ggplot(d1a) +
+ggplot(d1a) +
   geom_smooth(aes(trial,AccuracyP, color = condition), 
               method = "scam", 
               formula = y ~ s(x, k = 5, bs = "mpi"), 
               se = T) +
-  stat_smooth(aes(trial,Accuracy, color = condition,group = subject), geom='line', alpha=0.3, method = "scam", 
+  stat_smooth(aes(trial,Accuracy, color = condition, group = subject), 
+              geom='line', alpha=0.3, method = "scam", 
               formula = y ~ s(x, k = 5, bs = "mpi"), 
               se = F) +
   facet_wrap(.~session) +
   ylab("Performance in the first 32 trials") +
-  theme_classic()
+  scale_color_brewer(palette="Dark2") +
+  theme_classic() +
+  labs(x = "Trial", y = "Performance in the first stimulus cycle (first 32 trials)", color = "Condition")
+
+system("say I'm done")
+
+ggsave(here("plots", "figure3.pdf"), width = 5,height = 4)
 
 ## Figure 4 
-dd <- read_csv(here("data","Fig3_data.csv"))
+dd <- read_csv(here("data","Fig4_data.csv"))
 
 Fig4 <- ggplot(dd) + 
   geom_smooth(aes(session, Accuracy1, color = condition), method = "scam", 
               formula = y ~ s(x, k = 4, bs = "mpd"), 
               se = T) +
-  geom_line(aes(session, Accuracy1, group=subject, color = condition), alpha=0.2) + 
+  geom_line(aes(session, Accuracy1, group = subject, color = condition), alpha=0.2) + 
   scale_x_continuous(breaks=c(1, 2, 3)) + 
   ylab("Test Performance") +
   theme_classic()
