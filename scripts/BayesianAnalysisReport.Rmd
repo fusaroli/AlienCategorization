@@ -254,17 +254,24 @@ dd <- d1 %>% mutate(correct = predict(H1_m)[,1]) %>%
             Accuracy2 = mean(Accuracy, na.rm=T))
 
 write_csv(dd, here("data","Fig2_data.csv"))
-dd <- read_csv(here("data","Fig2_data.csv"))
+## Figure 2
+dd <- read_csv(here("data", "Fig2_data.csv"))
+dd$condition <- as.factor(dd$condition)
+levels(dd$condition) <- c("Groups","Individuals")
+
 Fig2 <- ggplot(dd) + 
   geom_smooth(aes(session, Accuracy1, color = condition), method = "scam", 
-        formula = y ~ s(x, k = 8, bs = "mpd"), 
-        se = T) +
+              formula = y ~ s(x, k = 8, bs = "mpd"), 
+              se = T) +
   geom_line(aes(session, Accuracy2, group=subject, color = condition), alpha=0.3) + 
   scale_x_continuous(breaks=c(1, 2, 3)) + 
-  ylab("Training Performance") + 
-  theme_classic()
+  ylab("Training Performance") +
+  scale_color_brewer(palette="Dark2") +
+  theme_classic() +
+  labs(x = "Complexity level", y = "Training Performance (accuracy)", color = "Condition")
 
-ggsave(here("plots","Figure2.svg"), Fig2, height=10, width=10)
+ggsave(here("plots","figure2.pdf"), Fig2, width = 5,height = 4)
+ggsave(here("plots","Figure2.svg"), Fig2, height = 4, width = 5)
 
 ```
 
@@ -451,18 +458,24 @@ dd <- d2 %>%
   group_by(subject, condition, session) %>%
   summarize(Accuracy1 = mean(Preds, na.rm=T), Accuracy2 = mean(Accuracy,na.rm=T))
 write_csv(dd, here("data","Fig4_data.csv"))
-dd <- read_csv(here("data","Fig4_data.csv"))
+
+## Figure 4 
+dd <- read_csv(here("data", "Fig4_data.csv"))
+dd$condition <- as.factor(dd$condition)
+levels(dd$condition) <- c("Groups","Individuals")
 
 Fig4 <- ggplot(dd) + 
   geom_smooth(aes(session, Accuracy1, color = condition), method = "scam", 
-        formula = y ~ s(x, k = 4, bs = "mpd"), 
-        se = T) +
-  geom_line(aes(session, Accuracy1, group=subject, color = condition), alpha=0.2) + 
+              formula = y ~ s(x, k = 4, bs = "mpd"), 
+              se = T) +
+  geom_line(aes(session, Accuracy1, group = subject, color = condition), alpha=0.2) + 
   scale_x_continuous(breaks=c(1, 2, 3)) + 
-  ylab("Test Performance") +
-  theme_classic()
+  scale_color_brewer(palette="Dark2") +
+  theme_classic() +
+  labs(x = "Complexity level", y = "Transfer phase performance (accuracy)", color = "Condition")
 
-ggsave(here("plots","Figure4.svg"), Fig3, height=10, width=10)
+ggsave(here("plots","figure4.pdf"), Fig4, width = 5, height = 4)
+ggsave(here("plots","Figure4.svg"), Fig4, height = 4, width = 5)
 
 ```
 
@@ -666,20 +679,29 @@ d1a$AccuracyP <- Preds[1,]
 d1a$Accuracy <- as.numeric(d1a$correct)-1
 
 write_csv(d1a, here("data","Fig3_data.csv"))
+# Figure 3
+d1a <- read_csv(here("data", "Fig3_data.csv"))
+d1a$condition <- as.factor(d1a$condition)
+levels(d1a$condition) <- c("Groups","Individuals")
 
 Fig3 <- ggplot(d1a) +
-  geom_smooth(aes(trial,AccuracyP, color = condition), 
+  geom_smooth(aes(trial,Accuracy, color = condition), 
               method = "scam", 
-        formula = y ~ s(x, k = 5, bs = "mpi"), 
-        se = T) +
-  stat_smooth(aes(trial,Accuracy, color = condition,group = subject), geom='line', alpha=0.3, method = "scam", 
-        formula = y ~ s(x, k = 5, bs = "mpi"), 
-        se = F) +
+              formula = y ~ s(x, k = 9, bs = "mpi"), 
+              se = T) +
+  stat_smooth(aes(trial,Accuracy, color = condition, group = subject), 
+              geom='line', alpha = 0.2, 
+              method = "scam", 
+              formula = y ~ s(x, k = 6, bs = "mpi"), 
+              se = F) +
   facet_wrap(.~session) +
   ylab("Performance in the first 32 trials") +
-  theme_classic()
+  scale_color_brewer(palette="Dark2") +
+  theme_classic() +
+  labs(x = "Trial", y = "Performance in the first stimulus cycle (first 32 trials)", color = "Condition")
 
-ggsave(here("plots", "Figure3.svg"), Fig4, height = 10, width = 10)
+ggsave(here("plots", "figure3.pdf"), Fig3, width = 5,height = 4)
+ggsave(here("plots", "Figure3.svg"), Fig3, height = 10, width = 10)
 
 ```
 
@@ -760,26 +782,46 @@ FinalData <- FinalData %>% mutate(
 
 write_csv(FinalData, here("data", "Fig5_data.csv"))
 
-p1 <- ggplot(FinalData,
-             aes(SemanticDiversity, PerformanceTraining)) +
-  geom_point() + geom_smooth(method=lm) + theme_classic()
-p2 <- ggplot(FinalData, 
-             aes(SemanticDiversity, PerformanceTest)) + 
-  geom_point() + geom_smooth(method=lm) + theme_classic()
+# Figure 5
+FinalData <- read_csv(here("data", "Fig5_data.csv"))
+FinalData$Session <- as.factor(FinalData$Session)
 
-p3 <- ggplot(FinalData, 
-             aes(SemanticDiversity, PerformanceTraining, color=Session, group=Session)) +
-  geom_point() + geom_smooth(method=lm) + theme_classic()
-p4 <- ggplot(FinalData, 
-             aes(SemanticDiversity, PerformanceTest, color=Session, group=Session)) + 
-  geom_point() + geom_smooth(method=lm) + theme_classic()
+p1 <- ggplot(FinalData, aes(SemanticDiversity, PerformanceTraining)) +
+  geom_point() + 
+  geom_smooth(method=lm, color = "red") + 
+  theme_classic() + 
+  scale_color_brewer(palette="Dark2") +
+  theme(axis.title.x=element_blank()) +
+  labs(title = "Training", y = "Performance (accuracy)")
 
+p2 <- ggplot(FinalData, aes(SemanticDiversity, PerformanceTest)) + 
+  geom_point() + 
+  geom_smooth(method=lm, color = "red") + 
+  theme_classic() +
+  scale_color_brewer(palette="Dark2") +
+  theme(axis.title.x=element_blank(), axis.title.y=element_blank()) +
+  labs(title = "Transfer")
 
-p5 <- plot(conditional_effects(mSSemLvl), plot=F, points=T)[[2]] + theme_classic()
-p6 <- plot(conditional_effects(mSSemLvl_T), plot=F, points=T)[[2]] + theme_classic()
+p3 <- ggplot(FinalData, aes(SemanticDiversity, PerformanceTraining, color=Session, group=Session)) +
+  geom_point() + 
+  geom_smooth(method=lm) + 
+  theme_classic() +
+  theme(legend.position = "none") +
+  scale_color_brewer(palette="Dark2") +
+  labs(x = "Semantic diversity (training)", y = "Performance (accuracy)", color = "Complexity")
 
-(p1 + p3) / (p2 + p4)
-ggsave(here("plots", "Figure5.svg"), width=10, height=10)
+p4 <- ggplot(FinalData, aes(SemanticDiversity, PerformanceTest, color=Session, group=Session)) + 
+  geom_point() + 
+  geom_smooth(method=lm) + 
+  theme_classic() +
+  scale_color_brewer(palette="Dark2") +
+  theme(axis.title.y=element_blank()) +
+  labs(x = "Semantic diversity (training)", color = "Complexity")
+
+(p1 + p2) / (p3 + p4) + plot_annotation(tag_levels = 'A')
+
+ggsave(here("plots", "figure5.pdf"), width = 8,height = 8)
+ggsave(here("plots", "Figure5.svg"), width = 8, height = 8)
 
 ```
 
