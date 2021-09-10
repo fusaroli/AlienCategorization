@@ -915,3 +915,47 @@ hypothesis(mTestSMotivation,
            "Session3:moMotivation  > 0"), class="bsp")
 
 ```
+
+
+## Testing whether just dyads could be better simply because one fo the two individuals might be better than the other.
+```{r}
+
+d <- d %>% mutate(correct = as.numeric(correct)-1)
+
+result <- d %>% subset(test==1) %>% group_by(subject, condition, session) %>% summarize(accuracy = mean(correct))
+result_ind <- result %>% subset(condition=="Individuals")
+result_dya <- result %>% subset(condition=="Dyads")
+
+fake_dyads <- combn(unique(result_ind$subject), 2)
+
+result_fake <- tibble(subject=NULL, condition=NULL, session = NULL, accuracy = NULL)
+
+for (fako in seq(ncol(fake_dyads))){
+  for (comp in c(1:3)){
+    
+    accuracy <- max(result_ind$accuracy[result_ind$subject==fake_dyads[1,fako] & result_ind$session==comp], result_ind$accuracy[result_ind$subject==fake_dyads[2,fako] & result_ind$session==comp])
+    
+    temp <- tibble(subject=fako, condition="fakeDyads", session = comp, accuracy = accuracy)
+    result_fake <- rbind(result_fake, temp)
+    
+  }
+  
+  
+}
+
+result_fake$subject<- as.factor(result_fake$subject)
+
+result1 <- rbind(result, result_fake)
+
+ggplot(result1, aes(condition, accuracy, group=condition, fill=condition)) +
+  geom_boxplot(alpha=0.3) +
+  facet_wrap(session~.) +
+  theme_classic()
+
+summary(lm(accuracy~condition,subset(result1, session==1)))
+summary(lm(accuracy~condition,subset(result1, session==2)))
+summary(lm(accuracy~condition,subset(result1, session==3)))
+
+
+```
+

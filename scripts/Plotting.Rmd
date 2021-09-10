@@ -1,0 +1,92 @@
+---
+title: "plots for social route to abstraction"
+author: "KT"
+date: "9/1/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Plot 2
+
+```{r}
+H1_m <- readRDS("models/H1_m1.rds")
+
+color_scheme_set("viridis")
+
+# old plot
+plot(conditional_effects(H1_m), plot = FALSE)[[3]] + 
+  scale_x_continuous(breaks=c(1, 2, 3)) + 
+  theme_classic()
+
+d <- conditional_effects(H1_m)[[3]]
+#d$session <- as.factor(d$session)
+d$condition <- factor(c("Individuals", "Groups"))
+ggplot(d, aes(session, estimate__, color = condition )) + 
+  geom_line(position=position_dodge(.2)) +
+  geom_point(size = 4, position=position_dodge(.2)) + #position=position_dodge(.9)
+  geom_errorbar(aes(ymin=estimate__-se__, ymax=estimate__+se__), width=.1, position=position_dodge(.2)) + #position=position_dodge(.9)
+  scale_x_continuous(breaks=c(1, 2, 3)) +
+  scale_color_brewer(palette="Dark2") +
+  labs(x = "Complexity level", y = "Training performance", color = "Condition") +
+  theme_classic()
+
+ggsave("plots/figure2.eps", width = 5, height = 4)
+```
+
+Plot 3
+
+```{r}
+d1a <- read_csv(here("data", "Fig3_data.csv"))
+
+d1a$condition <- as.factor(d1a$condition)
+levels(d1a$condition) <- c("Groups","Individuals")
+
+d1a$session <- as.factor(d1a$session)
+levels(d1a$session) <- c("Low","Intermediate", "High")
+
+ggplot(d1a, aes(trial,Accuracy, color = condition)) +
+  geom_smooth(method = "scam", formula = y ~ s(x, k = 9, bs = "mpi"), 
+              se = T) +
+  stat_smooth(aes(trial,Accuracy, color = condition, group = subject), 
+              geom='line', alpha = 0.2, 
+              method = "scam", 
+              formula = y ~ s(x, k = 6, bs = "mpi"), 
+              se = F) +
+  facet_wrap(.~session) +
+  ylab("Performance in the first 32 trials") +
+  scale_color_brewer(palette="Dark2") +
+  theme_classic() +
+  labs(x = "Trial", y = "Performance (first 32 trials)", color = "Condition")
+
+ggsave("plots/figure3.pdf", width = 5, height = 4)
+```
+
+Plot 4
+
+```{r}
+H2a_m <- readRDS("models/H2a_m.rds")
+
+# old plot
+plot(conditional_effects(H2a_m), plot = FALSE)[[3]] + 
+  scale_x_continuous(breaks=c(1, 2, 3)) + 
+  #ylim(.25, 1) +
+  theme_classic()
+
+d2 <- conditional_effects(H2a_m)[[3]]
+#d$session <- as.factor(d$session)
+d2$condition <- factor(c("Individuals", "Groups"))
+ggplot(d2, aes(session, estimate__, color = condition )) + 
+  geom_line(position=position_dodge(.2)) +
+  geom_point(size = 4, position=position_dodge(.2)) + #position=position_dodge(.9)
+  geom_errorbar(aes(ymin=estimate__-se__, ymax=estimate__+se__), width=.1, position=position_dodge(.2)) + #position=position_dodge(.9)
+  scale_x_continuous(breaks=c(1, 2, 3)) +
+  scale_color_brewer(palette="Dark2") +
+  labs(x = "Complexity level", y = "Transfer performance", color = "Condition") +
+  theme_classic()
+
+ggsave("plots/figure4.eps", width = 5, height = 4)
+```
+
