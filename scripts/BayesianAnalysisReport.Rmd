@@ -7,14 +7,10 @@ output: html_document
 
 # Hypotheses
 
-H1. Groups will outperform individuals in the training sessions across levels of complexity.
-H2. Groups will outperform individuals in abstraction levels
-H2a. Groups will outperform individuals in the transfer task across levels of complexity. 
-H2b. Groups will outperform individuals in the first cycle of each session (before any tokens get repeated).
-H3. Variability in group performance will be contingent on semantic distance
-
+H1. Groups will outperform individuals in the training sessions across levels of complexity. H2. Groups will outperform individuals in abstraction levels H2a. Groups will outperform individuals in the transfer task across levels of complexity. H2b. Groups will outperform individuals in the first cycle of each session (before any tokens get repeated). H3. Variability in group performance will be contingent on semantic distance
 
 # Load libraries and data
+
 # Define correct data types
 
 ```{r LibrariesData, echo=F, warning=F, message=F}
@@ -65,11 +61,9 @@ dSurvey <- read_delim(here("data", "AlienSurvey.txt"), delim = " ") %>%
 
 ```
 
-
 ## Analysis 1 - Performance (correctness) as a function of condition (individual vs dyad) and complexity (session) in the training sessions
 
-We use a mixed logistic regression model to assess main effects of condition (pair vs. individual) and complexity (session 1 to 3). We account for individual variability (random intercept plus random slopes due to session) and stimulus variability (random intercepts).
-Hypothesis testing is on the %
+We use a mixed logistic regression model to assess main effects of condition (pair vs. individual) and complexity (session 1 to 3). We account for individual variability (random intercept plus random slopes due to session) and stimulus variability (random intercepts). Hypothesis testing is on the %
 
 ### The first model tests main effects
 
@@ -247,38 +241,27 @@ plot(conditional_effects(H1_m), plot = FALSE)[[3]] +
   scale_x_continuous(breaks=c(1, 2, 3)) + 
   theme_classic()
 
-d1$Accuracy <- as.numeric(d1$correct)-1
-dd <- d1 %>% mutate(correct = predict(H1_m)[,1]) %>%
-  group_by(subject, condition, session) %>%
-  summarize(Accuracy1 = mean(correct, na.rm=T),
-            Accuracy2 = mean(Accuracy, na.rm=T))
 
-write_csv(dd, here("data","Fig2_data.csv"))
-## Figure 2
-dd <- read_csv(here("data", "Fig2_data.csv"))
-dd$condition <- as.factor(dd$condition)
-levels(dd$condition) <- c("Groups","Individuals")
+H1_m <- readRDS("models/H1_m1.rds")
 
-Fig2 <- ggplot(dd) + 
-  geom_smooth(aes(session, Accuracy1, color = condition), method = "scam", 
-              formula = y ~ s(x, k = 8, bs = "mpd"), 
-              se = T) +
-  geom_line(aes(session, Accuracy2, group=subject, color = condition), alpha=0.3) + 
-  scale_x_continuous(breaks=c(1, 2, 3)) + 
-  ylab("Training Performance") +
+d <- conditional_effects(H1_m)[[3]]
+
+d$condition <- factor(c("Individuals", "Groups"))
+
+ggplot(d, aes(session, estimate__, color = condition )) + 
+  geom_line() +
+  geom_point(size = 4) + 
+  geom_errorbar(aes(ymin=estimate__-se__, ymax=estimate__+se__), width=.1) + 
+  scale_x_continuous(breaks=c(1, 2, 3)) +
   scale_color_brewer(palette="Dark2") +
-  theme_classic() +
-  labs(x = "Complexity level", y = "Training Performance (accuracy)", color = "Condition")
+  labs(x = "Complexity level", y = "Training performance", color = "Condition") +
+  theme_classic()
 
-ggsave(here("plots","figure2.pdf"), Fig2, width = 5,height = 4)
-ggsave(here("plots","Figure2.svg"), Fig2, height = 4, width = 5)
+ggsave("plots/figure2.eps", width = 5, height = 4)
 
 ```
 
-
-
 ### Hypothesis 2a - Test Performance (correctness) as a function of condition (individual vs dyad) and complexity (session)
-
 
 ```{r Test, echo=F, warning=F, message=F}
 
@@ -479,7 +462,7 @@ ggsave(here("plots","Figure4.svg"), Fig4, height = 4, width = 5)
 
 ```
 
-## H2b 
+## H2b
 
 ```{r}
 ### Now only first cycle
