@@ -23,6 +23,10 @@ pacman::p_load(tidyverse,
 udmodelDK <- udpipe_download_model(language = "danish")
 udmodelEN <- udpipe_download_model(language = "english-lines")
 
+## N.B: you need to have word embedding representations for each language involved. We used the fasttext one. Download them and report here their paths 
+word2vecEN_Path <- "cc.en.300.vec"# here define the path to where you have the word2vec file for US English
+word2vecDK_Path <- "wiki.da.vec"# here define the path to where you have the word2vec file for US English
+
 transcripts <- list.files(here("data","Transcripts"), full.names = T)
 
 d <- transcripts %>%
@@ -245,14 +249,14 @@ tokens_DK <- t_DK %>% group_by(token) %>% summarize(freq=n())
 lemmas_DK <- t_DK %>% group_by(lemma) %>% summarize(freq=n())
 
 # Import word2vec from FastText
-w2v_EN <- data.table::fread("/Users/au209589/Downloads/cc.en.300.vec",quote="")
+w2v_EN <- data.table::fread(word2vecEN_Path,quote="") # nb 
 names(w2v_EN)[1] <- "token"
 names(w2v_EN)[2] <- "V2"
 t_EN <- merge(t_EN,w2v_EN,all.x=TRUE,all.y=FALSE)
 t_EN <- t_EN[order(t_EN$n),]
 write_csv(t_EN, here("data","tokenized_EN.csv"))
 w2v_EN <-NULL
-w2v_DK <- data.table::fread("/Users/au209589/Downloads/wiki.da.vec",quote="")
+w2v_DK <- data.table::fread(word2vecDK_Path,quote="")
 names(w2v_DK)[1] <- "token"
 names(w2v_DK)[2] <- "V2"
 
@@ -307,7 +311,6 @@ d_EN$doc_id <- paste0(d_EN$Pair,"_",d_EN$Session,"_",d_EN$JointDecision)
 t_EN$doc_id <- paste0(t_EN$Pair,"_",t_EN$Session,"_",t_EN$JointDecision)
 
 for (delay in c(1)) {
-  d_EN$LexicalAlignmentLemmas=NULL
   d_EN$SemanticAlignment=NULL
   
   for (i in unique(d_EN$doc_id)){
@@ -325,8 +328,6 @@ for (delay in c(1)) {
       u1 <- subset(lists,JointDecision==u & Interlocutor=="A")
       u2 <- subset(lists,JointDecision==u & Interlocutor=="B")
       
-      # Second the lexical cosine similarity: Lemmas
-      d_EN$LexicalAlignmentLemmas[d_EN$doc_id==i & d_EN$JointDecision==u] <- cosine_similarity(u1$lemma,u2$lemma)
       
       # Finally semantic alignment
       v1 <- colMeans(subset(u1, select=V2:V301),na.rm=T)
@@ -343,7 +344,6 @@ d_DK$doc_id <- paste0(d_DK$Pair,"_",d_DK$Session,"_",d_DK$JointDecision)
 t_DK$doc_id <- paste0(t_DK$Pair,"_",t_DK$Session,"_",t_DK$JointDecision)
 
 for (delay in c(1)) {
-  d_DK$LexicalAlignmentLemmas=NULL
   d_DK$SemanticAlignment=NULL
   
   for (i in unique(d_DK$doc_id)){
@@ -361,9 +361,6 @@ for (delay in c(1)) {
       u1 <- subset(lists,JointDecision==u & Interlocutor=="A")
       u2 <- subset(lists,JointDecision==u & Interlocutor=="B")
       
-      # Second the lexical cosine similarity: Lemmas
-      d_DK$LexicalAlignmentLemmas[d_DK$doc_id==i & d_DK$JointDecision==u] <- cosine_similarity(u1$lemma,u2$lemma)
-      
       # Finally semantic alignment
       v1 <- colMeans(subset(u1, select=V2:V301),na.rm=T)
       v2 <- colMeans(subset(u2, select=V2:V301),na.rm=T)
@@ -379,7 +376,6 @@ d_EN$doc_id <- paste0(d_EN$Pair,"_",d_EN$Session)
 t_EN$doc_id <- paste0(t_EN$Pair,"_",t_EN$Session)
 
 for (delay in c(1)) {
-  d_EN$LexicalAlignmentLemmas=NULL
   d_EN$SemanticAlignment=NULL
   
   for (i in unique(d_EN$doc_id)){
@@ -396,8 +392,6 @@ for (delay in c(1)) {
       u1 <- subset(lists,Session==u & Interlocutor=="A")
       u2 <- subset(lists,Session==u & Interlocutor=="B")
       
-      # Second the lexical cosine similarity: Lemmas
-      d_EN$LexicalAlignmentLemmas[d_EN$doc_id==i & d_EN$Session==u] <- cosine_similarity(u1$lemma,u2$lemma)
       
       # Finally semantic alignment
       v1 <- colMeans(subset(u1, select=V2:V301),na.rm=T)
@@ -414,7 +408,6 @@ d_DK$doc_id <- paste0(d_DK$Pair,"_",d_DK$Session)
 t_DK$doc_id <- paste0(t_DK$Pair,"_",t_DK$Session)
 
 for (delay in c(1)) {
-  d_DK$LexicalAlignmentLemmas=NULL
   d_DK$SemanticAlignment=NULL
   
   for (i in unique(d_DK$doc_id)){
@@ -430,9 +423,6 @@ for (delay in c(1)) {
       # Isolating the utterances
       u1 <- subset(lists,Session==u & Interlocutor=="A")
       u2 <- subset(lists,Session==u & Interlocutor=="B")
-      
-      # Second the lexical cosine similarity: Lemmas
-      d_DK$LexicalAlignmentLemmas[d_DK$doc_id==i & d_DK$Session==u] <- cosine_similarity(u1$lemma,u2$lemma)
       
       # Finally semantic alignment
       v1 <- colMeans(subset(u1, select=V2:V301),na.rm=T)
@@ -459,7 +449,7 @@ d_EN$doc_id <- paste0(d_EN$Pair,"_", d_EN$Session)
 t_EN$doc_id <- paste0(t_EN$Pair,"_", t_EN$Session)
 
 for (delay in c(1)) {
-  d_EN$LexicalAlignmentLemmas=NULL
+  
   d_EN$SemanticAlignment=NULL
   
   for (i in unique(d_EN$doc_id)){
@@ -478,9 +468,6 @@ for (delay in c(1)) {
         
         Interlocutor <- d$Interlocutor[d_EN$doc_id==i & d_EN$Turn==u]
         
-        # Second the lexical cosine similarity: Lemmas
-        d_EN$LexicalAlignmentLemmas[d_EN$doc_id==i & d_EN$Turn==u] <- cosine_similarity(u1$lemma,u2$lemma)
-        
         # Finally semantic alignment
         v1 <- colMeans(subset(u1, select=V2:V301),na.rm=T)
         v2 <- colMeans(subset(u2, select=V2:V301),na.rm=T)
@@ -497,7 +484,6 @@ d_DK$doc_id <- paste0(d_DK$Pair,"_", d_DK$Session)
 t_DK$doc_id <- paste0(t_DK$Pair,"_", t_DK$Session)
 
 for (delay in c(1)) {
-  d_DK$LexicalAlignmentLemmas=NULL
   d_DK$SemanticAlignment=NULL
   
   for (i in unique(d_DK$doc_id)){
@@ -514,9 +500,6 @@ for (delay in c(1)) {
       # Isolating the utterances
       u1 <- subset(lists,Turn==(u-delay))
       u2 <- subset(lists,Turn==u)
-      
-      # Second the lexical cosine similarity: Lemmas
-      d_DK$LexicalAlignmentLemmas[d_DK$doc_id==i & d_DK$Turn==u] <- cosine_similarity(u1$lemma,u2$lemma)
       
       # Finally semantic alignment
       v1 <- colMeans(subset(u1, select=V2:V301),na.rm=T)
@@ -539,66 +522,7 @@ janitor::compare_df_cols(d_DK, d_EN)
 d <- rbind(d_DK, d_EN) %>%
   mutate(
     Session = as.factor(Session),
-    LexicalAlignmentLemmas = ifelse(LexicalAlignmentLemmas>0.99, 0.99, LexicalAlignmentLemmas),
     SemanticAlignment = ifelse(SemanticAlignment > 0.99, 0.99, ifelse(SemanticAlignment<0.01, 0.01,SemanticAlignment)))
-
-LexicalAlignment_f <- bf(
-  LexicalAlignmentLemmas ~ 0 + Session + (0 + Session | p | Pair),
-  zi ~ 0 + Session + (0 + Session | p | Pair)
-)
-
-get_prior(LexicalAlignment_f, d, family=zero_inflated_beta)
-
-prior <- c(
-  prior(lkj(5), class = cor),
-  prior(normal(0, .3), class = sd),
-  prior(normal(0, .3), class = sd, dpar = zi),
-  prior(normal(0, .3), class = b),
-  prior(normal(0, .3), class = b, dpar = zi)
-)
-
-LexicalAlignment_m <- brm(
-  LexicalAlignment_f,
-  d,
-  family = zero_inflated_beta(),
-  cores = 2,
-  chains = 2,
-  control = list(adapt_delta=0.99),
-  prior = prior,
-  sample_prior = T,
-  file = here("models","LexicalAlignment_m")
-)
-
-plot(hypothesis(LexicalAlignment_m, "Session1 > 0"))
-plot(hypothesis(LexicalAlignment_m, "zi_Session1 > 0"))
-plot(hypothesis(LexicalAlignment_m, "Session2 > 0"))
-plot(hypothesis(LexicalAlignment_m, "zi_Session2 > 0"))
-plot(hypothesis(LexicalAlignment_m, "Session3 > 0"))
-plot(hypothesis(LexicalAlignment_m, "zi_Session3 > 0"))
-
-plot(hypothesis(LexicalAlignment_m, "Session1a > 0"))
-plot(hypothesis(LexicalAlignment_m, "zi_Session1a > 0"))
-plot(hypothesis(LexicalAlignment_m, "Session2a > 0"))
-plot(hypothesis(LexicalAlignment_m, "zi_Session2a > 0"))
-plot(hypothesis(LexicalAlignment_m, "Session3a > 0"))
-plot(hypothesis(LexicalAlignment_m, "zi_Session3a > 0"))
-
-
-plot(hypothesis(LexicalAlignment_m, "Session1 > 0", class="sd", group="Pair"))
-plot(hypothesis(LexicalAlignment_m, "zi_Session1 > 0", class="sd", group="Pair"))
-plot(hypothesis(LexicalAlignment_m, "Session2 > 0", class="sd", group="Pair"))
-plot(hypothesis(LexicalAlignment_m, "zi_Session2 > 0", class="sd", group="Pair"))
-plot(hypothesis(LexicalAlignment_m, "Session3 > 0", class="sd", group="Pair"))
-plot(hypothesis(LexicalAlignment_m, "zi_Session3 > 0", class="sd", group="Pair"))
-
-plot(hypothesis(LexicalAlignment_m, "Session1a > 0", class="sd", group="Pair"))
-plot(hypothesis(LexicalAlignment_m, "zi_Session1a > 0", class="sd", group="Pair"))
-plot(hypothesis(LexicalAlignment_m, "Session2a > 0", class="sd", group="Pair"))
-plot(hypothesis(LexicalAlignment_m, "zi_Session2a > 0", class="sd", group="Pair"))
-plot(hypothesis(LexicalAlignment_m, "Session3a > 0", class="sd", group="Pair"))
-plot(hypothesis(LexicalAlignment_m, "zi_Session3a > 0", class="sd", group="Pair"))
-
-plot(hypothesis(LexicalAlignment_m, "Session1__Session1a > 0", class="cor", group="Pair"))
 
 SemanticAlignment_f <- bf(
   SemanticAlignment ~ 0 + Session + (0 + Session | Pair)
@@ -665,57 +589,44 @@ dSurvey <- read_delim(here("data", "AlienSurvey.txt"), delim = " ") %>%
     Condition = as.factor(Condition)
   )
 
-LexicalAlignment_m <- readRDS(here("models", "LexicalAlignment_m.rds"))
 SemanticAlignment_m <- readRDS(here("models", "SemanticAlignment_m.rds"))
 Analysis1a_m <- readRDS(here("models", "Analysis1a_m1.rds"))
 Analysis1b_m <- readRDS(here("models", "Analysis1b_m.rds"))
 Analysis1aTrial_m3<- readRDS(here("models", "Analysis1aTrial_m3.rds"))
 
 AlignmentS1 = data.frame(
-  Pair = rownames(ranef(LexicalAlignment_m)$Pair[, , "zi_Session1"]),
-  LexicalRate = - (ranef(LexicalAlignment_m)$Pair[, , "zi_Session1"][,1]),
-  LexicalLevel = (ranef(LexicalAlignment_m)$Pair[, , "Session1"][,1]),
+  Pair = rownames(ranef(SemanticAlignment_m)$Pair[, , "Session1"]),
   SemanticLevel = (ranef(SemanticAlignment_m)$Pair[, , "Session1"][,1]),
   Session = 1,
   Phase = "Training"
 )
 AlignmentS2 = data.frame(
-  Pair = rownames(ranef(LexicalAlignment_m)$Pair[, , "zi_Session2"]),
-  LexicalRate = - (ranef(LexicalAlignment_m)$Pair[, , "zi_Session2"][,1]),
-  LexicalLevel = (ranef(LexicalAlignment_m)$Pair[, , "Session2"][,1]),
+  Pair = rownames(ranef(SemanticAlignment_m)$Pair[, , "Session2"]),
   SemanticLevel = (ranef(SemanticAlignment_m)$Pair[, , "Session2"][,1]),
   Session = 2,
   Phase = "Training"
 )
 AlignmentS3 = data.frame(
-  Pair = rownames(ranef(LexicalAlignment_m)$Pair[, , "zi_Session3"]),
-  LexicalRate = - (ranef(LexicalAlignment_m)$Pair[, , "zi_Session3"][,1]),
-  LexicalLevel = (ranef(LexicalAlignment_m)$Pair[, , "Session3"][,1]),
+  Pair = rownames(ranef(SemanticAlignment_m)$Pair[, , "Session3"]),
   SemanticLevel = (ranef(SemanticAlignment_m)$Pair[, , "Session3"][,1]),
   Session = 3,
   Phase = "Training"
 )
 
 AlignmentS1a = data.frame(
-  Pair = rownames(ranef(LexicalAlignment_m)$Pair[, , "zi_Session1a"]),
-  LexicalRate = - (ranef(LexicalAlignment_m)$Pair[, , "zi_Session1a"][,1]),
-  LexicalLevel = (ranef(LexicalAlignment_m)$Pair[, , "Session1a"][,1]),
+  Pair = rownames(ranef(SemanticAlignment_m)$Pair[, , "Session1a"]),
   SemanticLevel = (ranef(SemanticAlignment_m)$Pair[, , "Session1a"][,1]),
   Session = 1,
   Phase = "Test"
 )
 AlignmentS2a = data.frame(
-  Pair = rownames(ranef(LexicalAlignment_m)$Pair[, , "zi_Session2a"]),
-  LexicalRate = - (ranef(LexicalAlignment_m)$Pair[, , "zi_Session2a"][,1]),
-  LexicalLevel = (ranef(LexicalAlignment_m)$Pair[, , "Session2a"][,1]),
+  Pair = rownames(ranef(SemanticAlignment_m)$Pair[, , "Session2a"]),
   SemanticLevel = (ranef(SemanticAlignment_m)$Pair[, , "Session2a"][,1]),
   Session = 2,
   Phase = "Test"
 )
 AlignmentS3a = data.frame(
-  Pair = rownames(ranef(LexicalAlignment_m)$Pair[, , "zi_Session3a"]),
-  LexicalRate = - (ranef(LexicalAlignment_m)$Pair[, , "zi_Session3a"][,1]),
-  LexicalLevel = (ranef(LexicalAlignment_m)$Pair[, , "Session3a"][,1]),
+  Pair = rownames(ranef(SemanticAlignment_m)$Pair[, , "Session3a"]),
   SemanticLevel = (ranef(SemanticAlignment_m)$Pair[, , "Session3a"][,1]),
   Session = 3,
   Phase = "Test"
@@ -723,15 +634,11 @@ AlignmentS3a = data.frame(
 
 Alignment <- rbind(AlignmentS1,AlignmentS2, AlignmentS3,AlignmentS1a, AlignmentS2a, AlignmentS3a)
 AlignmentTraining <- rbind(AlignmentS1, AlignmentS2, AlignmentS3) %>%
-  rename(LexicalRateTraining = LexicalRate,
-         LexicalLevelTraining = LexicalLevel,
-         SemanticLevelTraining = SemanticLevel
+  rename(SemanticLevelTraining = SemanticLevel
          ) %>% select(-Phase)
 
 AlignmentTest <- rbind(AlignmentS1a, AlignmentS2a, AlignmentS3a)%>%
-  rename(LexicalRateTest = LexicalRate,
-         LexicalLevelTest = LexicalLevel,
-         SemanticLevelTest = SemanticLevel
+  rename(SemanticLevelTest = SemanticLevel
          ) %>% select(-Phase)
 Alignment2 <- merge(AlignmentTraining,AlignmentTest, all=T)
 

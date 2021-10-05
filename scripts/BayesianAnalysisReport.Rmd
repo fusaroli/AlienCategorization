@@ -1,17 +1,13 @@
 ---
-title: "Report on the Alien Analysis"
+title: "Report on The Social Route to Abstraction"
 author: "Riccardo Fusaroli"
 date: "14 May 2020"
 output: html_document
 ---
 
-# Hypotheses
+The Markdown script contains the analyses for the study The Social Route to Abstraction. Notice that it is accompanied by a Supplementary Material document that provides additional motivation and detail for the statistical choices made here   
 
-H1. Groups will outperform individuals in the training sessions across levels of complexity. H2. Groups will outperform individuals in abstraction levels H2a. Groups will outperform individuals in the transfer task across levels of complexity. H2b. Groups will outperform individuals in the first cycle of each session (before any tokens get repeated). H3. Variability in group performance will be contingent on semantic distance
-
-# Load libraries and data
-
-# Define correct data types
+# Load libraries
 
 ```{r LibrariesData, echo=F, warning=F, message=F}
 
@@ -27,7 +23,11 @@ pacman::p_load(
 color_scheme_set("viridis")
 
 setwd(here())
+```
 
+# Load data and define correct data types
+
+```{r}
 # Load the performance data and ensure the data structure is right
 
 d <- read_csv(here("data","AlienData.txt")) %>%
@@ -49,7 +49,12 @@ d <- read_csv(here("data","AlienData.txt")) %>%
     condition = relevel(condition, "Individuals")
   )
 
+# Training data set
+d1 <- d %>% 
+  subset(test == 0)
 
+
+# Load debriefing survey data 
 
 dSurvey <- read_delim(here("data", "AlienSurvey.txt"), delim = " ") %>%
   mutate(
@@ -57,20 +62,28 @@ dSurvey <- read_delim(here("data", "AlienSurvey.txt"), delim = " ") %>%
     Condition = as.factor(Condition)
   )
 
-
-
 ```
+
+# Hypotheses
+
+H1. Groups will outperform individuals in the training sessions across the three levels of complexity. 
+H2. Groups will outperform individuals in abstraction levels 
+H2a. Groups will outperform individuals in the transfer task across levels of complexity. 
+H2b. Groups will outperform individuals in the first cycle of each session (before any tokens get repeated). 
+H3. Variability in group performance will be contingent on cognitive diversity, here operationalized as the semantic distance between group members' dialogical contributions. 
 
 ## Analysis 1 - Performance (correctness) as a function of condition (individual vs dyad) and complexity (session) in the training sessions
 
-We use a mixed logistic regression model to assess main effects of condition (pair vs. individual) and complexity (session 1 to 3). We account for individual variability (random intercept plus random slopes due to session) and stimulus variability (random intercepts). Hypothesis testing is on the %
+We use a mixed logistic regression model to assess main effects of condition (pair vs. individual) and complexity (session 1 to 3). We account for individual variability (random intercept plus random slopes due to session) and stimulus variability (random intercepts). Hypothesis testing is on the % scale
 
-### The first model tests main effects
+### Model 1
+
+This model tests hypothesis 1. That is, it test training performance as a function of condition and complexity
+
+Model specification:
 
 ```{r TrainingMainEffects, echo=F, warning=F, message=F}
 
-d1 <- d %>% 
-  subset(test == 0)
 
 H1_f <- bf(
   correct ~ 0 + condition + condition:mo(session) + 
@@ -88,6 +101,12 @@ H1_prior <- c(
   prior(lkj(5), class = cor),
   prior(normal(0, .3), class = sd)
 )
+
+```
+
+Prior predictive checks 
+
+```{r}
 
 H1_m_prior <- brm(
   H1_f, 
@@ -107,6 +126,16 @@ rethinking::dens(
   inv_logit_scaled(LogOddsPreds[1:2000,])
 )
 
+
+# check the priors
+H1_m_prior <- readRDS(here("models", "H1_m_prior.rds"))
+pp_check(H1_m_prior, nsamples=100)
+```
+
+Run the full model 
+
+```{r}
+
 H1_m <- brm(
   H1_f, 
   d1, 
@@ -120,7 +149,16 @@ H1_m <- brm(
   control = list(adapt_delta=0.9, max_treedepth=20)
   )
 
+```
+
+Model checks
+
+```{r}
 ### Let's check model quality
+H1_m <- readRDS(here("models", "H1_m1.rds"))
+
+pp_check(H1_m, nsamples=100)
+
 summary(H1_m)  ## Any warnings?
 LogOddsPreds <- posterior_linpred(H1_m)
 rethinking::dens(
@@ -157,7 +195,11 @@ p9 <- plot(hypothesis(H1_m,"conditionDyads:mosession > conditionIndividuals:mose
 p10 <- plot(hypothesis(H1_m,"conditionIndividuals:mosession > 0", class="sd", group="subject"))
 p11 <- plot(hypothesis(H1_m,"conditionDyads:mosession > 0", class="sd", group="subject"))
 
-## Hypothesis testing
+```
+
+Hypothesis testing
+
+```{r}
 ## Performance is best for dyads
 
 Post <- posterior_samples(H1_m, pars = c(
@@ -236,19 +278,18 @@ round(mean(Post$IndividualsS3),2)*100
 round(sd(Post$IndividualsS3),2)*100
 round(quantile(Post$IndividualsS3, c(.025, 0.975)),2)*100
 
+```
+
+Plot the results 
+
+```{r}
 ## Plotting
-plot(conditional_effects(H1_m), plot = FALSE)[[3]] + 
-  scale_x_continuous(breaks=c(1, 2, 3)) + 
-  theme_classic()
 
+p1 <- conditional_effects(H1_m)[[3]]
 
-H1_m <- readRDS("models/H1_m1.rds")
+p1$condition <- factor(c("Individuals", "Groups"))
 
-d <- conditional_effects(H1_m)[[3]]
-
-d$condition <- factor(c("Individuals", "Groups"))
-
-ggplot(d, aes(session, estimate__, color = condition )) + 
+ggplot(p1, aes(session, estimate__, color = condition )) + 
   geom_line() +
   geom_point(size = 4) + 
   geom_errorbar(aes(ymin=estimate__-se__, ymax=estimate__+se__), width=.1) + 
@@ -261,7 +302,11 @@ ggsave("plots/figure2.eps", width = 5, height = 4)
 
 ```
 
-### Hypothesis 2a - Test Performance (correctness) as a function of condition (individual vs dyad) and complexity (session)
+### Model 2
+
+Model 2 test hypothesis 2a, that groups will outperform individuals in the transfer task across levels of complexity. 
+
+Model specifications:
 
 ```{r Test, echo=F, warning=F, message=F}
 
@@ -284,6 +329,12 @@ H2a_prior <- c(
   prior(normal(0, 1), class = sd)
 )
 
+```
+
+Prior predictive checks:
+
+```{r}
+
 H2a_m_prior <- brm(
   H2a_f, 
   d2, 
@@ -302,6 +353,14 @@ rethinking::dens(
   inv_logit_scaled(LogOddsPreds[1:2000,])
 )
 
+H2a_m_prior <- readRDS(here("models","H2a_m_prior.rds"))
+pp_check(H2a_m_prior, nsamples=100)
+```
+
+Run the full model
+
+```{r}
+
 H2a_m <- brm(
   H2a_f, 
   d2, 
@@ -315,7 +374,15 @@ H2a_m <- brm(
   control = list(adapt_delta=0.9, max_treedepth=20)
   )
 
+```
+
+Check the model 
+
+```{r}
 ### Let's check model quality
+H2a_m <- readRDS(here("models","H2a_m.rds"))
+pp_check(H2a_m, nsamples=100)
+
 summary(H2a_m)  ## Any warnings?
 LogOddsPreds <- posterior_linpred(H2a_m)
 rethinking::dens(
@@ -350,6 +417,12 @@ plot(hypothesis(H2a_m,"conditionDyads:mosession > 0", class="bsp"))
 plot(hypothesis(H2a_m,"conditionDyads:mosession > conditionIndividuals:mosession", class="bsp"))
 plot(hypothesis(H2a_m,"conditionIndividuals:mosession > 0", class="sd", group="subject"))
 plot(hypothesis(H2a_m,"conditionDyads:mosession > 0", class="sd", group="subject"))
+
+```
+
+Test the hypotheses
+
+```{r}
 
 ## Hypothesis testing
 Post <- posterior_samples(H2a_m, pars = c(
@@ -429,43 +502,55 @@ round(mean(Post$IndividualsS3),2)*100
 round(sd(Post$IndividualsS3),2)*100
 round(quantile(Post$IndividualsS3, c(.025, 0.975)),2)*100
 
-## Plotting
-plot(conditional_effects(H2_m), plot = FALSE)[[3]] + 
-  scale_x_continuous(breaks=c(1, 2, 3)) + 
-  #ylim(.25, 1) +
+```
+
+Plot the results 
+
+```{r} 
+
+p2 <- conditional_effects(H2a_m)[[3]]
+
+p2$condition <- factor(c("Individuals", "Groups"))
+
+ggplot(p2, aes(session, estimate__, color = condition )) + 
+  geom_line(position=position_dodge(.2)) +
+  geom_point(size = 4, position=position_dodge(.2)) + 
+  geom_errorbar(aes(ymin=estimate__-se__, ymax=estimate__+se__), width=.1, position=position_dodge(.2)) + 
+  scale_x_continuous(breaks=c(1, 2, 3)) +
+  scale_color_brewer(palette="Dark2") +
+  labs(x = "Complexity level", y = "Transfer performance", color = "Condition") +
   theme_classic()
 
-d2$Accuracy <- as.numeric(d2$correct)-1
-d2$Preds <- predict(H2a_m)[,1]
-dd <- d2 %>%
-  group_by(subject, condition, session) %>%
-  summarize(Accuracy1 = mean(Preds, na.rm=T), Accuracy2 = mean(Accuracy,na.rm=T))
-write_csv(dd, here("data","Fig4_data.csv"))
-
-## Figure 4 
-dd <- read_csv(here("data", "Fig4_data.csv"))
-dd$condition <- as.factor(dd$condition)
-levels(dd$condition) <- c("Groups","Individuals")
-
-Fig4 <- ggplot(dd) + 
-  geom_smooth(aes(session, Accuracy1, color = condition), method = "scam", 
-              formula = y ~ s(x, k = 4, bs = "mpd"), 
-              se = T) +
-  geom_line(aes(session, Accuracy1, group = subject, color = condition), alpha=0.2) + 
-  scale_x_continuous(breaks=c(1, 2, 3)) + 
-  scale_color_brewer(palette="Dark2") +
-  theme_classic() +
-  labs(x = "Complexity level", y = "Transfer phase performance (accuracy)", color = "Condition")
-
-ggsave(here("plots","figure4.pdf"), Fig4, width = 5, height = 4)
-ggsave(here("plots","Figure4.svg"), Fig4, height = 4, width = 5)
+ggsave("plots/figure4.eps", width = 5, height = 4)
 
 ```
 
-## H2b
+## Model 3
+
+This model test hypothesis H2b: Groups will outperform individuals in the first cycle of each session (before any stimulus tokens get repeated)   
+
+Run the same model as for hypothesis 1 (model 1), but subset data to only include the first cycle (= 32 aliens).
 
 ```{r}
 ### Now only first cycle
+H2b_m_prior <- brm(
+  H1_f, 
+  subset(d1, cycle==1), 
+  family = bernoulli,
+  prior = H1_prior,
+  sample_prior = "only",
+  chains = 2,
+  cores = 2,
+  iter = 4000,
+  file = here("models","H2b_m_prior"),
+  control = list(adapt_delta = 0.9, max_treedepth = 20)
+  )
+
+H2b_m_prior <- readRDS(here("models","H2b_m_prior.rds"))
+pp_check(H2b_m_prior, nsamples=100)
+```
+
+```{r}
 H2b_m <- brm(
   H1_f, 
   subset(d1, cycle==1), 
@@ -481,7 +566,15 @@ H2b_m <- brm(
 
 H2b_m  <- add_criterion(H2b_m, criterion = c("loo", "bayes_R2"))
 
+```
+
+Check the model
+
+```{r}
 ### Let's check model quality
+H2b_m <- readRDS(here("models", "H2b_m.rds"))
+pp_check(H2b_m, nsamples=100)
+
 summary(H2b_m)  ## Any warnings?
 LogOddsPreds <- posterior_linpred(H2b_m)
 rethinking::dens(
@@ -532,6 +625,12 @@ plot(hypothesis(H2b_m,"conditionDyads:mosession:motrial > 0", class="sd", group=
 plot(hypothesis(H2b_m,"conditionIndividuals > 0", class="sd", group="stimulus"))
 plot(hypothesis(H2b_m,"conditionDyads > 0", class="sd", group="stimulus"))
 
+
+```
+
+Test the hypotheses
+
+```{r}
 ## Hypothesis testing
 
 ### Dyads learn quicker than individuals
@@ -655,22 +754,27 @@ round(mean((Post$IndividualFinalS1 - Post$IndividualFinalS3)),2)*100
 round(sd((Post$IndividualFinalS1 - Post$IndividualFinalS3)),2)*100
 round(quantile((Post$IndividualFinalS1 - Post$IndividualFinalS3), c(.025, 0.975)),2)*100
 
+```
+
+Plot the results
+
+```{r}
+
 ## PLOTTING
 Preds <- inv_logit_scaled(posterior_linpred(H2b_m))
-d1a <- subset(d1, cycle==1)
-d1a$AccuracyP <- Preds[1,]
-d1a$Accuracy <- as.numeric(d1a$correct)-1
+p3 <- subset(d1, cycle==1)
+p3$AccuracyP <- Preds[1,]
+p3$Accuracy <- as.numeric(p3$correct)-1
 
-write_csv(d1a, here("data","Fig3_data.csv"))
-# Figure 3
-d1a <- read_csv(here("data", "Fig3_data.csv"))
-d1a$condition <- as.factor(d1a$condition)
-levels(d1a$condition) <- c("Groups","Individuals")
+p3$condition <- as.factor(p3$condition)
+levels(p3$condition) <- c("Groups","Individuals")
 
-Fig3 <- ggplot(d1a) +
-  geom_smooth(aes(trial,Accuracy, color = condition), 
-              method = "scam", 
-              formula = y ~ s(x, k = 9, bs = "mpi"), 
+p3$session <- as.factor(p3$session)
+levels(p3$session) <- c("Low","Intermediate", "High")
+
+
+ggplot(p3, aes(trial,Accuracy, color = condition)) +
+  geom_smooth(method = "scam", formula = y ~ s(x, k = 9, bs = "mpi"), 
               se = T) +
   stat_smooth(aes(trial,Accuracy, color = condition, group = subject), 
               geom='line', alpha = 0.2, 
@@ -681,14 +785,19 @@ Fig3 <- ggplot(d1a) +
   ylab("Performance in the first 32 trials") +
   scale_color_brewer(palette="Dark2") +
   theme_classic() +
-  labs(x = "Trial", y = "Performance in the first stimulus cycle (first 32 trials)", color = "Condition")
+  labs(x = "Trial", y = "Performance (first 32 trials)", color = "Condition")
 
 ggsave(here("plots", "figure3.pdf"), Fig3, width = 5,height = 4)
 ggsave(here("plots", "Figure3.svg"), Fig3, height = 10, width = 10)
 
 ```
 
-## Hypothesis 3 - Semantic diversity predicts performance
+## Model 4
+
+Model 4 test hypothesis 3, that is, that variability in group performance will be contingent on the degree of cognitive diversity in the group. Here we operationalize cognitive diversity as the semantic distance between group members' dialogical contributions. 
+The semantic variable is preprocessed in another Rmarkdown script, NLP_PreProcessing.Rmd, and imported together with the debriefing survey data.     
+
+Import and prepare data
 
 ```{r}
 FinalData <- read_csv(here("data", "IndividualDifferences.csv"))
@@ -697,6 +806,11 @@ FinalData <- FinalData %>% mutate(
   Session = as.factor(Session),
   SemanticLevelTraining = 1 - SemanticLevelTraining)
 
+```
+
+Model specifications 
+
+```{r}
 ## Now models
 PerformanceTrainingSemanticLevelSession_f <- bf(
   PerformanceTrainingP ~ 0 + Session +  SemanticLevelTraining:Session + ( 1|Pair)
@@ -714,6 +828,37 @@ prior <- c(
   prior(normal(0, 0.5), class = sigma)
 )
 
+```
+Prior predictive checks 
+
+```{r}
+mSSemLvl_prior <- brm(PerformanceTrainingSemanticLevelSession_f, 
+                FinalData, chains=2, cores=2, 
+                prior = prior,
+                sample_prior = "only",
+                file = here("models", "PerformanceTrainingSemanticLevelSession2_prior"),
+                control=list(adapt_delta=0.99))
+
+mSSemLvl_T_prior <- brm(PerformanceTestSemanticLevelSession_f, 
+                FinalData, chains=2, cores=2, 
+                prior = prior,
+                sample_prior = "only",
+                file = here("models", "PerformanceTestSemanticLevelSession2_prior"),
+                control=list(adapt_delta=0.99))
+
+
+mSSemLvl_prior <- readRDS(here("models", "PerformanceTrainingSemanticLevelSession2_prior.rds"))
+pp_check(mSSemLvl_prior, nsamples=100)
+
+mSSemLvl_T_prior <- readRDS(here("models", "PerformanceTestSemanticLevelSession2_prior.rds"))
+pp_check(mSSemLvl_T_prior, nsamples=100)
+```
+
+
+
+Run the models
+
+```{r}
 mSSemLvl <- brm(PerformanceTrainingSemanticLevelSession_f, 
                 FinalData, chains=2, cores=2, 
                 prior = prior,
@@ -727,6 +872,17 @@ mSSemLvl_T <- brm(PerformanceTestSemanticLevelSession_f,
                 sample_prior = T,
                 file = here("models", "PerformanceTestSemanticLevelSession2"),
                 control=list(adapt_delta=0.99))
+
+mSSemLvl <- readRDS(here("models", "PerformanceTrainingSemanticLevelSession2.rds"))
+pp_check(mSSemLvl, nsamples=100)
+
+mSSemLvl_T <- readRDS(here("models", "PerformanceTestSemanticLevelSession2.rds"))
+pp_check(mSSemLvl_T, nsamples=100)
+```
+
+Check the models
+
+```{r}
 
 plot(hypothesis(mSSemLvl, "Session1 > 0"))
 plot(hypothesis(mSSemLvl, "Session1:SemanticLevelTraining  > 0"))
@@ -744,6 +900,11 @@ plot(hypothesis(mSSemLvl_T, "Session3 > 0"))
 plot(hypothesis(mSSemLvl_T, "Session3:SemanticLevelTraining  > 0"))
 plot(hypothesis(mSSemLvl_T, "Intercept  > 0", class="sd", group="Pair"))
 
+```
+
+Test the hypotheses
+
+```{r}
 hypothesis(mSSemLvl, c(
   "(Session1:SemanticLevelTraining + Session2:SemanticLevelTraining + Session3:SemanticLevelTraining)/3  > 0", 
   "Session1:SemanticLevelTraining  > 0", 
@@ -756,6 +917,11 @@ hypothesis(mSSemLvl_T, c(
            "Session2:SemanticLevelTraining  > 0",
            "Session3:SemanticLevelTraining  > 0"))
 
+```
+
+Plot the results
+
+```{r}
 
 library(patchwork)
 
@@ -763,17 +929,17 @@ FinalData <- FinalData %>% mutate(
   SemanticDiversity = ((SemanticLevelTraining - min(SemanticLevelTraining, na.rm=T)) / max(SemanticLevelTraining - min(SemanticLevelTraining, na.rm=T), na.rm=T))
 )
 
-write_csv(FinalData, here("data", "Fig5_data.csv"))
+# Set fixed/consistent colors 
+palette1 = setNames(object = scales::hue_pal()(4), nm = c("1", "2", "3"))
 
-# Figure 5
-FinalData <- read_csv(here("data", "Fig5_data.csv"))
 FinalData$Session <- as.factor(FinalData$Session)
 
 p1 <- ggplot(FinalData, aes(SemanticDiversity, PerformanceTraining)) +
   geom_point() + 
   geom_smooth(method=lm, color = "red") + 
   theme_classic() + 
-  scale_color_brewer(palette="Dark2") +
+  #scale_color_brewer(palette="Dark2") +
+  scale_color_manual(values = palette1) +
   theme(axis.title.x=element_blank()) +
   labs(title = "Training", y = "Performance (accuracy)")
 
@@ -781,7 +947,8 @@ p2 <- ggplot(FinalData, aes(SemanticDiversity, PerformanceTest)) +
   geom_point() + 
   geom_smooth(method=lm, color = "red") + 
   theme_classic() +
-  scale_color_brewer(palette="Dark2") +
+  #scale_color_brewer(palette="Dark2") +
+  scale_color_manual(values = palette1) +
   theme(axis.title.x=element_blank(), axis.title.y=element_blank()) +
   labs(title = "Transfer")
 
@@ -790,14 +957,16 @@ p3 <- ggplot(FinalData, aes(SemanticDiversity, PerformanceTraining, color=Sessio
   geom_smooth(method=lm) + 
   theme_classic() +
   theme(legend.position = "none") +
-  scale_color_brewer(palette="Dark2") +
+  #scale_color_brewer(palette="Dark2") +
+  scale_color_manual(values = palette1) +
   labs(x = "Semantic diversity (training)", y = "Performance (accuracy)", color = "Complexity")
 
 p4 <- ggplot(FinalData, aes(SemanticDiversity, PerformanceTest, color=Session, group=Session)) + 
   geom_point() + 
   geom_smooth(method=lm) + 
   theme_classic() +
-  scale_color_brewer(palette="Dark2") +
+  #scale_color_brewer(palette="Dark2") +
+  scale_color_manual(values = palette1) +
   theme(axis.title.y=element_blank()) +
   labs(x = "Semantic diversity (training)", color = "Complexity")
 
@@ -808,7 +977,15 @@ ggsave(here("plots", "Figure5.svg"), width = 8, height = 8)
 
 ```
 
-### Control Analyses - Controlling for differences in RT, effort and motivation by condition
+### Model 5
+
+Control Analyses - Controlling for differences in RT, effort and motivation by condition
+
+First we test for differences between the conditions. Next we test if the motivational factors influence/confound performance differences. 
+
+## Motivation
+
+Model specifications
 
 ```{r SurveyTest}
 dSurvey <- dSurvey %>% mutate(
@@ -824,6 +1001,22 @@ prior <- c(
   prior(normal(0, 1), class = sd)
 )
 
+```
+
+Run the model 
+
+```{r}
+Motivation_m_prior <- brm(Motivation_f, 
+                    family = cumulative, 
+                    chains = 2,
+                    cores = 1,
+                    prior = prior,
+                    sample_prior = "only",
+                    control = list(adapt_delta=0.99, max_treedepth=20),
+                    dSurvey)
+
+pp_check(Motivation_m_prior, nsamples=100)
+
 Motivation_m <- brm(Motivation_f, 
                     family = cumulative, 
                     chains = 2,
@@ -832,12 +1025,45 @@ Motivation_m <- brm(Motivation_f,
                     sample_prior = T,
                     control = list(adapt_delta=0.99, max_treedepth=20),
                     dSurvey)
+
+pp_check(Motivation_m, nsamples=100)
+```
+
+Model checks
+
+```{r}
+
 plot(hypothesis(Motivation_m, "ConditionPair > 0"))
 plot(hypothesis(Motivation_m, "Intercept:ConditionIndividual > 0", class="sd", group="Pair"))
 plot(hypothesis(Motivation_m, "Intercept:ConditionPair > 0", class="sd", group="Pair"))
 
+```
+
+Test the hypothesis
+
+```{r}
+
 hypothesis(Motivation_m, "ConditionPair > 0")
 conditional_effects(Motivation_m)
+
+```
+
+## Effort
+
+Model specifications and run
+
+```{r}
+Effort_m_prior <- brm(Effort ~ 1 + Condition + (1 | gr(Pair, by=Condition)), 
+                family = cumulative, 
+                    chains = 2,
+                    cores = 1,
+                    prior = prior,
+                    sample_prior = "only",
+                    control = list(adapt_delta=0.99, max_treedepth=20),
+                    dSurvey)
+
+pp_check(Effort_m_prior, nsamples=100)
+
 Effort_m <- brm(Effort ~ 1 + Condition + (1 | gr(Pair, by=Condition)), 
                 family = cumulative, 
                     chains = 2,
@@ -846,13 +1072,35 @@ Effort_m <- brm(Effort ~ 1 + Condition + (1 | gr(Pair, by=Condition)),
                     sample_prior = T,
                     control = list(adapt_delta=0.99, max_treedepth=20),
                     dSurvey)
+
+pp_check(Effort_m, nsamples=100)
+```
+
+Model checks
+
+```{r}
+
 plot(hypothesis(Effort_m, "ConditionPair > 0"))
 plot(hypothesis(Effort_m, "Intercept:ConditionIndividual > 0", class="sd", group="Pair"))
 plot(hypothesis(Effort_m, "Intercept:ConditionPair > 0", class="sd", group="Pair"))
+```
+
+Hypothesis testing
+
+```{r}
 hypothesis(Effort_m, "ConditionPair > 0")
 conditional_effects(Effort_m)
 
+```
+
+## Reaction time
+
+model specification
+
+```{r}
+
 d <- d %>% mutate(session=as.factor(session))
+
 RT_f <- bf(RT ~ 0 + condition:session + (0 + session | gr(subject, by=condition)) + 
     (0 + condition | stimulus))
 
@@ -864,34 +1112,102 @@ prior <- c(
   prior(normal(0, .1), class=sd)
 )
 
-RT_m <- brm(RT_f, d, 
+```
+
+Run the model
+
+```{r}
+
+RT_m_prior <- brm(RT_f, 
+            d, 
+            family = shifted_lognormal(),
+            chains=2,
+            cores=1,
+            prior=prior,
+            sample_prior="only",
+            control = list(adapt_delta=0.99, max_treedepth=20))
+
+pp_check(RT_m_prior, nsamples=100)
+
+RT_m <- brm(RT_f, 
+            d, 
             family = shifted_lognormal(),
             chains=2,
             cores=1,
             prior=prior,
             sample_prior=T,
-                    control = list(adapt_delta=0.99, max_treedepth=20))
+            control = list(adapt_delta=0.99, max_treedepth=20))
+
+pp_check(RT_m, nsamples=100)
+```
+
+Model checks
+
+```{r}
+
 hypothesis(RT_m, "conditionIndividuals:session")
 
+```
+
+## Test the relation between control variables and performance
+
+# Does effort predict training performance? 
+
+Model specifications and run 
+
+```{r}
 PerformanceTrainingEffortSession_f <- bf(
-  PerformanceTrainingP ~ 0 + Session +  mo(Effort):Session + ( 1|Pair)
-)
-mTrainingSEffort <- brm(PerformanceTrainingEffortSession_f, FinalData, chains=2, cores=1, control=list(adapt_delta=0.99))
+  PerformanceTrainingP ~ 0 + Session +  mo(Effort):Session + ( 1|Pair))
+
+mTrainingSEffort <- brm(PerformanceTrainingEffortSession_f, 
+                        FinalData, 
+                        chains=2, 
+                        cores=1, 
+                        control=list(adapt_delta=0.99))
+```
+
+Model checks
+
+```{r}
 hypothesis(mTrainingSEffort, 
            c("(Session1:moEffort + Session2:moEffort + Session3:moEffort)/3  > 0", 
              "Session1:moEffort  > 0", 
            "Session2:moEffort  > 0",
            "Session3:moEffort  > 0"), class="bsp")
+```
+
+# Does motivation predict training performance? 
+
+Model specifications and run 
+
+```{r}
 
 PerformanceTrainingMotivationSession_f <- bf(
-  PerformanceTrainingP ~ 0 + Session +  mo(Motivation):Session + ( 1|Pair)
-)
-mTrainingSMotivation <- brm(PerformanceTrainingMotivationSession_f, FinalData, chains=2, cores=1, control=list(adapt_delta=0.99))
+  PerformanceTrainingP ~ 0 + Session +  mo(Motivation):Session + ( 1|Pair))
+
+
+mTrainingSMotivation <- brm(PerformanceTrainingMotivationSession_f, 
+                            FinalData, 
+                            chains=2, 
+                            cores=1, 
+                            control=list(adapt_delta=0.99))
+```
+
+Model checks
+
+```{r}
+
 hypothesis(mTrainingSMotivation, 
            c("(Session1:moMotivation + Session2:moMotivation + Session3:moMotivation)/3  > 0",
            "Session1:moMotivation  > 0", 
            "Session2:moMotivation  > 0",
            "Session3:moMotivation  > 0"), class="bsp")
+
+```
+
+# Does effort predict transfer performance
+
+```{r}
 
 PerformanceTestEffortSession_f <- bf(
   PerformanceTestP ~ 0 + Session +  mo(Effort):Session + ( 1|Pair)
@@ -917,45 +1233,5 @@ hypothesis(mTestSMotivation,
 ```
 
 
-## Testing whether just dyads could be better simply because one fo the two individuals might be better than the other.
-```{r}
 
-d <- d %>% mutate(correct = as.numeric(correct)-1)
-
-result <- d %>% subset(test==1) %>% group_by(subject, condition, session) %>% summarize(accuracy = mean(correct))
-result_ind <- result %>% subset(condition=="Individuals")
-result_dya <- result %>% subset(condition=="Dyads")
-
-fake_dyads <- combn(unique(result_ind$subject), 2)
-
-result_fake <- tibble(subject=NULL, condition=NULL, session = NULL, accuracy = NULL)
-
-for (fako in seq(ncol(fake_dyads))){
-  for (comp in c(1:3)){
-    
-    accuracy <- max(result_ind$accuracy[result_ind$subject==fake_dyads[1,fako] & result_ind$session==comp], result_ind$accuracy[result_ind$subject==fake_dyads[2,fako] & result_ind$session==comp])
-    
-    temp <- tibble(subject=fako, condition="fakeDyads", session = comp, accuracy = accuracy)
-    result_fake <- rbind(result_fake, temp)
-    
-  }
-  
-  
-}
-
-result_fake$subject<- as.factor(result_fake$subject)
-
-result1 <- rbind(result, result_fake)
-
-ggplot(result1, aes(condition, accuracy, group=condition, fill=condition)) +
-  geom_boxplot(alpha=0.3) +
-  facet_wrap(session~.) +
-  theme_classic()
-
-summary(lm(accuracy~condition,subset(result1, session==1)))
-summary(lm(accuracy~condition,subset(result1, session==2)))
-summary(lm(accuracy~condition,subset(result1, session==3)))
-
-
-```
 
