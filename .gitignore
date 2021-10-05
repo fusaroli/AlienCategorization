@@ -2,8 +2,15 @@
 .Rhistory
 .RData
 .Ruserdata
+.DS_Store
 data/.DS_Store
+data/Lemm*
+data/Ngram*
+data/Tok*
 scripts/.DS_Store
 data/old/
 papers/
 models/
+plots/
+plots/figure3.pdf
+plots/figure5.pdf
